@@ -11,25 +11,24 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Find required packages
 find_package(OpenGL REQUIRED)
 find_package(glfw3 REQUIRED)
-find_package(glm REQUIRED)
 
 # Include directories
 include_directories(
     ${OPENGL_INCLUDE_DIR}
     ${CMAKE_SOURCE_DIR}/include
-    /usr/local/include
-    /opt/homebrew/include
+    /usr/local/include  # For Intel Macs
+    /opt/homebrew/include  # For Apple Silicon Macs
 )
 
 # Create a list of our source files
-set(SOURCES
+set(SOURCES 
     src/glad.c
     src/main.cpp
     src/shader.cpp
 )
 
 # Define the executable target
-add_executable((GlowingOres ${SOURCES}))
+add_executable(GlowingOres ${SOURCES})
 
 # Link libraries to our executable
 target_link_libraries(GlowingOres
@@ -40,7 +39,6 @@ target_link_libraries(GlowingOres
 # macOS specific flags
 if(APPLE)
     target_compile_options(GlowingOres PRIVATE "-Wall")
-    # Link additional frameworks for macOS
     target_link_libraries(GlowingOres
         "-framework Cocoa"
         "-framework IOKit"
