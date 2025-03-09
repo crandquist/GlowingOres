@@ -25,6 +25,7 @@ include_directories(
 set(SOURCES
     src/glad.c
     src/main.cpp
+    src/shader.cpp
 )
 
 # Define the executable target
