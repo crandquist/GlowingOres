@@ -63,3 +63,7 @@ _deps/
 # Screenshots and temporary media files (useful if you're taking development screenshots)
 screenshots/*
 !screenshots/.gitkeep
+
+# GLEW dependency files (if any local ones are generated)
+*.so
+*.dll
