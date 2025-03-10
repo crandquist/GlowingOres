@@ -25,13 +25,17 @@ include_directories(
     /opt/homebrew/include  # For Apple Silicon Macs
 )
 
-# Create test executable for GLEW
-add_executable(glew_test 
-    src/test.cpp
+# Source files
+set(SOURCES
+    src/shader.cpp
+    src/test_shader.cpp
 )
 
+# Create test executable for shader class
+add_executable(shader_test ${SOURCES})
+
 # Link with required libraries
-target_link_libraries(glew_test
+target_link_libraries(shader_test
     glfw
     ${OPENGL_LIBRARIES}
     ${GLEW_LIBRARIES}
@@ -39,7 +43,7 @@ target_link_libraries(glew_test
 
 # macOS specific settings
 if(APPLE)
-    target_link_libraries(glew_test
+    target_link_libraries(shader_test
         "-framework Cocoa"
         "-framework IOKit"
         "-framework CoreVideo"
