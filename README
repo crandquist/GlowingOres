@@ -33,7 +33,7 @@ The shader implementation includes:
 This project was developed on macOS using Apple Silicon (M1) hardware. The OpenGL context runs on top of Apple's Metal framework (version 4.1), which introduces some compatibility requirements:
 
 - GLSL shaders use version 410 core
-- Shader attributes use modern GLSL syntax with ```in```/```out``` qualifiers
+- Shader attributes use modern GLSL syntax with `in`/`out` qualifiers
 - Specialized error handling for Metal translation layer
 
 ## Project Structure
@@ -106,7 +106,7 @@ GlowingOres/
 ### Using as a Minecraft Shader
 
 1. Install OptiFine or Iris+Sodium for Minecraft
-2. Copy the ```minecraft_shaders``` directory to your ```.minecraft/shaderspacks```
+2. Copy the `minecraft_shaders` directory to your `.minecraft/shaderspacks`
 3. Rename it to something like "GlowingOres_v1.0"
 4. In Minecraft, go to Options → Video Settings → Shaders and select the shader pack
 
