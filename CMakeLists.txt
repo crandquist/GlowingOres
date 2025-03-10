@@ -1,10 +1,12 @@
-# Minimum required CMake version
 cmake_minimum_required(VERSION 3.12)
-
-# Project name and language
 project(GlowingOres CXX)
 
-# Set C++ standard to C++17
+# Set architecture for Apple Silicon
+if(APPLE)
+    set(CMAKE_OSX_ARCHITECTURES "arm64")
+endif()
+
+# Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -12,36 +14,40 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(OpenGL REQUIRED)
 find_package(glfw3 REQUIRED)
 
+# Manually specify GLEW paths for macOS with Homebrew
+set(GLEW_INCLUDE_DIRS "/opt/homebrew/include")
+set(GLEW_LIBRARIES "/opt/homebrew/lib/libGLEW.dylib")
+
 # Include directories
 include_directories(
-    ${OPENGL_INCLUDE_DIR}
     ${CMAKE_SOURCE_DIR}/include
-    /usr/local/include  # For Intel Macs
+    ${GLEW_INCLUDE_DIRS}
     /opt/homebrew/include  # For Apple Silicon Macs
 )
 
-# Create a list of our source files
-set(SOURCES 
-    src/glad.c
-    src/main.cpp
-    src/shader.cpp
+# Create test executable for GLEW
+add_executable(glew_test 
+    src/test.cpp
 )
 
-# Define the executable target
-add_executable(GlowingOres ${SOURCES})
-
-# Link libraries to our executable
-target_link_libraries(GlowingOres
-    ${OPENGL_LIBRARIES}
+# Link with required libraries
+target_link_libraries(glew_test
     glfw
+    ${OPENGL_LIBRARIES}
+    ${GLEW_LIBRARIES}
 )
 
-# macOS specific flags
+# macOS specific settings
 if(APPLE)
-    target_compile_options(GlowingOres PRIVATE "-Wall")
-    target_link_libraries(GlowingOres
+    target_link_libraries(glew_test
         "-framework Cocoa"
         "-framework IOKit"
         "-framework CoreVideo"
     )
 endif()
+
+# Output debug information
+message(STATUS "OpenGL include dir: ${OPENGL_INCLUDE_DIR}")
+message(STATUS "OpenGL libraries: ${OPENGL_LIBRARIES}")
+message(STATUS "GLEW include dirs: ${GLEW_INCLUDE_DIRS}")
+message(STATUS "GLEW libraries: ${GLEW_LIBRARIES}")
