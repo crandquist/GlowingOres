@@ -1,6 +1,24 @@
-// Simple post-processor implementation (src/simple_post.cpp)
+// src/simple_post.cpp
 #include "simple_post.h"
 #include <iostream>
+
+SimplePostProcessor::SimplePostProcessor(unsigned int width, unsigned int height) 
+    : width(width), height(height), framebuffer(0), textureColorBuffer(0), quadVAO(0) {
+    
+    // Create a very simple shader for rendering to screen
+    try {
+        screenShader = new Shader("../shaders/quad.vert", "../shaders/simple_post.frag");
+        std::cout << "Successfully loaded post-processing shaders" << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "Failed to load post-processing shaders: " << e.what() << std::endl;
+        throw;
+    }
+    
+    initFramebuffer();
+    initQuad();
+}
+
+// ... rest of the implementation as provided earlier ...
 
 SimplePostProcessor::SimplePostProcessor(unsigned int width, unsigned int height) 
     : width(width), height(height), framebuffer(0), textureColorBuffer(0), quadVAO(0) {
