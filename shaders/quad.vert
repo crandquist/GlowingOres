@@ -1,23 +1,11 @@
+// shaders/quad.vert
 #version 410 core
+layout (location = 0) in vec2 aPos;
+layout (location = 1) in vec2 aTexCoords;
 
-out vec4 FragColor;
-in vec2 TexCoords;
-
-uniform sampler2D scene;
-uniform sampler2D bloomBlur;
-uniform float bloomIntensity;
+out vec2 TexCoords;
 
 void main() {
-    // Sample both the original scene and the blurred bright parts
-    vec3 originalColor = texture(scene, TexCoords).rgb;
-    vec3 bloomColor = texture(bloomBlur, TexCoords).rgb;
-    
-    // Add bloom to the original scene, scaled by bloom intensity
-    originalColor += bloomColor * bloomIntensity;
-    
-    // Apply simple tone mapping to prevent oversaturation
-    // This uses a basic Reinhard operator
-    originalColor = originalColor / (originalColor + vec3(1.0));
-    
-    FragColor = vec4(originalColor, 1.0);
+    TexCoords = aTexCoords;
+    gl_Position = vec4(aPos.x, aPos.y, 0.0, 1.0);
 }
