@@ -1,6 +1,8 @@
 #version 410 core
 
-out vec4 FragColor;
+// Two output colors: one for the rendered scene and one for bright parts
+layout (location = 0) out vec4 FragColor;      // Main color output
+layout (location = 1) out vec4 BrightColor;    // Bright parts for bloom
 
 in vec3 FragPos;
 in vec3 Normal;
@@ -15,6 +17,9 @@ uniform vec3 viewPos;               // Camera position
 uniform float ambientLight;         // Ambient light level (0.0 to 1.0)
 uniform vec3 oreColor;              // Color of the ore's glow
 uniform float glowStrength;         // Base strength of the glow
+
+// Bloom threshold - any pixels brighter than this go into the bright buffer
+uniform float bloomThreshold;
 
 void main() {
     // Sample textures
@@ -38,5 +43,15 @@ void main() {
     // Combine ambient lighting with glow
     vec3 result = ambient + (oreColor * dynamicGlow);
     
+    // Output the final color
     FragColor = vec4(result, diffuseColor.a);
+    
+    // Check if the pixel is bright enough for bloom
+    // We'll use the emissive parts only
+    float brightness = dot(oreColor * dynamicGlow, vec3(0.2126, 0.7152, 0.0722));
+    if (brightness > bloomThreshold) {
+        BrightColor = vec4(oreColor * dynamicGlow, 1.0);
+    } else {
+        BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
+    }
 }
