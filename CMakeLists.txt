@@ -1,41 +1,7 @@
-cmake_minimum_required(VERSION 3.12)
-project(GlowingOres CXX)
+# Add to your existing CMakeLists.txt
+add_executable(test_glowing src/shader.cpp src/test_glowing.cpp src/stb_image_imp.cpp)
 
-# Set architecture for Apple Silicon
-if(APPLE)
-    set(CMAKE_OSX_ARCHITECTURES "arm64")
-endif()
-
-# Set C++ standard
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-# Find required packages
-find_package(OpenGL REQUIRED)
-find_package(glfw3 REQUIRED)
-
-# Manually specify GLEW paths for macOS with Homebrew
-set(GLEW_INCLUDE_DIRS "/opt/homebrew/include")
-set(GLEW_LIBRARIES "/opt/homebrew/lib/libGLEW.dylib")
-
-# Include directories
-include_directories(
-    ${CMAKE_SOURCE_DIR}/include
-    ${GLEW_INCLUDE_DIRS}
-    /opt/homebrew/include  # For Apple Silicon Macs
-)
-
-# Source files
-set(SOURCES
-    src/shader.cpp
-    src/test_shader.cpp
-)
-
-# Create test executable for shader class
-add_executable(shader_test ${SOURCES})
-
-# Link with required libraries
-target_link_libraries(shader_test
+target_link_libraries(test_glowing
     glfw
     ${OPENGL_LIBRARIES}
     ${GLEW_LIBRARIES}
@@ -43,15 +9,9 @@ target_link_libraries(shader_test
 
 # macOS specific settings
 if(APPLE)
-    target_link_libraries(shader_test
+    target_link_libraries(test_glowing
         "-framework Cocoa"
         "-framework IOKit"
         "-framework CoreVideo"
     )
 endif()
-
-# Output debug information
-message(STATUS "OpenGL include dir: ${OPENGL_INCLUDE_DIR}")
-message(STATUS "OpenGL libraries: ${OPENGL_LIBRARIES}")
-message(STATUS "GLEW include dirs: ${GLEW_INCLUDE_DIRS}")
-message(STATUS "GLEW libraries: ${GLEW_LIBRARIES}")
