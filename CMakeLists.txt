@@ -25,20 +25,21 @@ include_directories(
     /opt/homebrew/include  # For Apple Silicon Macs
 )
 
-# Source files
-set(SOURCES
+# Source files for shader test
+set(SHADER_TEST_SOURCES
     src/shader.cpp
     src/test_shader.cpp
 )
 
-# Create test executable for shader class
-add_executable(shader_test ${SOURCES})
-
-# Define the source files for test_glowing
+# Source files for glowing effect with bloom
 set(GLOWING_SOURCES
     src/shader.cpp
+    src/post_processor.cpp  # Added post_processor.cpp
     src/test_glowing.cpp
 )
+
+# Create test executable for shader class
+add_executable(shader_test ${SHADER_TEST_SOURCES})
 
 # Create test executable for glowing effect
 add_executable(test_glowing ${GLOWING_SOURCES})
@@ -76,3 +77,16 @@ message(STATUS "OpenGL include dir: ${OPENGL_INCLUDE_DIR}")
 message(STATUS "OpenGL libraries: ${OPENGL_LIBRARIES}")
 message(STATUS "GLEW include dirs: ${GLEW_INCLUDE_DIRS}")
 message(STATUS "GLEW libraries: ${GLEW_LIBRARIES}")
+
+# Create the shader and texture directories in the build directory
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/shaders)
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/textures)
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/textures/diamond)
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/textures/emerald)
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/textures/redstone)
+
+# Copy shader files to build directory
+file(GLOB SHADER_FILES ${CMAKE_SOURCE_DIR}/shaders/*.vert ${CMAKE_SOURCE_DIR}/shaders/*.frag)
+foreach(SHADER_FILE ${SHADER_FILES})
+    file(COPY ${SHADER_FILE} DESTINATION ${CMAKE_BINARY_DIR}/shaders/)
+endforeach()
