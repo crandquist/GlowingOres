@@ -1,4 +1,4 @@
-// Add this at the top to implement STB Image
+// Define STB Image implementation before including the header
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -9,6 +9,8 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 #include <filesystem>
+#include <vector>
+#include <string>
 #include "shader.h"
 
 // Settings
@@ -17,11 +19,21 @@ const unsigned int SCR_HEIGHT = 600;
 
 // Function prototypes
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-void processInput(GLFWwindow* window, float &ambientLight);
+void processInput(GLFWwindow* window, float &ambientLight, int &currentOreIndex);
 unsigned int loadTexture(const char* path);
 
 // Global variables
 float ambientLight = 0.5f; // Ambient light level (0.0 = dark, 1.0 = bright)
+int currentOreIndex = 0;   // Current ore being displayed
+
+// Struct to hold ore properties
+struct OreProperties {
+    std::string name;
+    glm::vec3 color;
+    float glowStrength;
+    unsigned int diffuseMap;
+    unsigned int emissiveMap;
+};
 
 int main() {
     // Initialize GLFW
@@ -60,9 +72,15 @@ int main() {
     // Print current directory to help with debugging file paths
     std::cout << "Current working directory: " << std::filesystem::current_path() << std::endl;
     
-    // Use the basic shaders for now, just to get something working
-    // We'll use the glowing shaders once we've implemented them
-    Shader shader("../shaders/basic.vert", "../shaders/basic.frag");
+    // Load and compile shaders - first try the glowing shaders, fall back to basic if they don't exist
+    Shader* activeShader = nullptr;
+    try {
+        activeShader = new Shader("../shaders/glowing.vert", "../shaders/glowing.frag");
+        std::cout << "Successfully loaded glowing shaders" << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "Failed to load glowing shaders, falling back to basic: " << e.what() << std::endl;
+        activeShader = new Shader("../shaders/basic.vert", "../shaders/basic.frag");
+    }
     
     // Set up vertex data for a cube
     float vertices[] = {
@@ -131,26 +149,115 @@ int main() {
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
     glEnableVertexAttribArray(2);
     
+    // Define ore types
+    std::vector<OreProperties> ores;
+    
+    // Diamond ore
+    OreProperties diamond;
+    diamond.name = "Diamond";
+    diamond.color = glm::vec3(0.0f, 0.8f, 1.0f); // Light blue
+    diamond.glowStrength = 2.0f;
+    
+    try {
+        diamond.diffuseMap = loadTexture("../textures/diamond/diffuse.png");
+        diamond.emissiveMap = loadTexture("../textures/diamond/emissive.png");
+        ores.push_back(diamond);
+    } catch (const std::exception& e) {
+        std::cerr << "Failed to load diamond textures, using fallback red color: " << e.what() << std::endl;
+    }
+    
+    // If no textures were loaded, at least add one default ore
+    if (ores.empty()) {
+        diamond.diffuseMap = 0; // We'll just use a solid color
+        diamond.emissiveMap = 0;
+        ores.push_back(diamond);
+    }
+    
+    // More ore types can be added here as they become available
+    
     // Camera position
     glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
+    
+    // Print instructions
+    std::cout << "Controls:" << std::endl;
+    std::cout << " - Up/Down arrows: Adjust ambient light level" << std::endl;
+    std::cout << " - Left/Right arrows: Switch between ore types (when more are available)" << std::endl;
     
     // Render loop
     while (!glfwWindowShouldClose(window)) {
         // Process input
-        processInput(window, ambientLight);
+        processInput(window, ambientLight, currentOreIndex);
         
         // Clear framebuffer
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         
         // Activate shader
-        shader.use();
+        activeShader->use();
         
         // Set camera-related uniforms
         glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
         glm::mat4 view = glm::lookAt(cameraPos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.5f, 1.0f, 0.0f));
+        
+        // First check if the shader has these uniforms (it might be the basic shader as fallback)
+        GLint modelLoc = glGetUniformLocation(activeShader->ID, "model");
+        if (modelLoc != -1) {
+            activeShader->setMat4("model", model);
+        }
+        
+        GLint viewLoc = glGetUniformLocation(activeShader->ID, "view");
+        if (viewLoc != -1) {
+            activeShader->setMat4("view", view);
+        }
+        
+        GLint projLoc = glGetUniformLocation(activeShader->ID, "projection");
+        if (projLoc != -1) {
+            activeShader->setMat4("projection", projection);
+        }
+        
+        // Set ore-specific properties and glowing parameters if the shader supports them
+        GLint viewPosLoc = glGetUniformLocation(activeShader->ID, "viewPos");
+        if (viewPosLoc != -1) {
+            activeShader->setVec3("viewPos", cameraPos);
+        }
+        
+        GLint ambientLightLoc = glGetUniformLocation(activeShader->ID, "ambientLight");
+        if (ambientLightLoc != -1) {
+            activeShader->setFloat("ambientLight", ambientLight);
+        }
+        
+        // Make sure we have a valid ore to render
+        int oreIndex = currentOreIndex % ores.size();
+        OreProperties& currentOre = ores[oreIndex];
+        
+        // Set ore color and glow strength if the shader supports these uniforms
+        GLint oreColorLoc = glGetUniformLocation(activeShader->ID, "oreColor");
+        if (oreColorLoc != -1) {
+            activeShader->setVec3("oreColor", currentOre.color);
+        }
+        
+        GLint glowStrengthLoc = glGetUniformLocation(activeShader->ID, "glowStrength");
+        if (glowStrengthLoc != -1) {
+            activeShader->setFloat("glowStrength", currentOre.glowStrength);
+        }
+        
+        // Bind textures if the shader supports them and we have valid textures
+        GLint diffuseTexLoc = glGetUniformLocation(activeShader->ID, "diffuseTexture");
+        GLint emissiveTexLoc = glGetUniformLocation(activeShader->ID, "emissiveTexture");
+        
+        if (diffuseTexLoc != -1 && currentOre.diffuseMap != 0) {
+            activeShader->setInt("diffuseTexture", 0);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, currentOre.diffuseMap);
+        }
+        
+        if (emissiveTexLoc != -1 && currentOre.emissiveMap != 0) {
+            activeShader->setInt("emissiveTexture", 1);
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, currentOre.emissiveMap);
+        }
         
         // Draw cube
         glBindVertexArray(VAO);
@@ -160,20 +267,22 @@ int main() {
         glfwSwapBuffers(window);
         glfwPollEvents();
         
-        // Display current ambient light level
-        std::cout << "\rAmbient Light: " << ambientLight << " (Use UP/DOWN arrows to adjust)" << std::flush;
+        // Display current settings
+        std::cout << "\rOre: " << currentOre.name << " | Ambient Light: " << ambientLight << " (Use UP/DOWN arrows to adjust)" << std::flush;
     }
     
     // Clean up
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
     
+    delete activeShader;
+    
     glfwTerminate();
     return 0;
 }
 
 // Process keyboard input
-void processInput(GLFWwindow* window, float &ambientLight) {
+void processInput(GLFWwindow* window, float &ambientLight, int &currentOreIndex) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
     
@@ -182,6 +291,28 @@ void processInput(GLFWwindow* window, float &ambientLight) {
         ambientLight = std::min(ambientLight + 0.01f, 1.0f);
     if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
         ambientLight = std::max(ambientLight - 0.01f, 0.0f);
+        
+    // Change ore type
+    static bool rightPressed = false;
+    if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
+        if (!rightPressed) {
+            currentOreIndex++;
+            rightPressed = true;
+        }
+    } else {
+        rightPressed = false;
+    }
+    
+    static bool leftPressed = false;
+    if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) {
+        if (!leftPressed) {
+            currentOreIndex--;
+            if (currentOreIndex < 0) currentOreIndex = 0;
+            leftPressed = true;
+        }
+    } else {
+        leftPressed = false;
+    }
 }
 
 // Window resize callback
@@ -205,8 +336,9 @@ unsigned int loadTexture(const char* path) {
         else if (nrComponents == 4)
             format = GL_RGBA;
         else {
-            std::cout << "Texture format not supported: " << nrComponents << " components" << std::endl;
-            format = GL_RGB;
+            std::cerr << "Texture format not supported: " << nrComponents << " components" << std::endl;
+            stbi_image_free(data);
+            throw std::runtime_error("Unsupported texture format");
         }
         
         glBindTexture(GL_TEXTURE_2D, textureID);
@@ -223,6 +355,7 @@ unsigned int loadTexture(const char* path) {
     } else {
         std::cerr << "Texture failed to load at path: " << path << std::endl;
         stbi_image_free(data);
+        throw std::runtime_error("Failed to load texture");
     }
     
     return textureID;
