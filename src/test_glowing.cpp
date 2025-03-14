@@ -6,6 +6,7 @@
 #include <iostream>
 #include <filesystem>
 #include "shader.h"
+#include "stb_image.h"
 
 // Settings
 const unsigned int SCR_WIDTH = 800;
