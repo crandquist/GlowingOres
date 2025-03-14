@@ -49,7 +49,7 @@ int main() {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     
     // Create window
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Glowing Ore Test", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Minecraft Glowing Ore Test", NULL, NULL);
     if (!window) {
         std::cerr << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
@@ -82,7 +82,8 @@ int main() {
         activeShader = new Shader("../shaders/basic.vert", "../shaders/basic.frag");
     }
     
-    // Set up vertex data for a cube
+    // Set up vertex data for a Minecraft-style cube
+    // Each face uses exact texture coordinates for pixel-perfect alignment
     float vertices[] = {
         // positions          // normals           // texture coords
         -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
@@ -166,14 +167,40 @@ int main() {
         std::cerr << "Failed to load diamond textures, using fallback red color: " << e.what() << std::endl;
     }
     
+    // Emerald ore
+    OreProperties emerald;
+    emerald.name = "Emerald";
+    emerald.color = glm::vec3(0.0f, 0.8f, 0.2f); // Green
+    emerald.glowStrength = 1.8f;
+    
+    try {
+        emerald.diffuseMap = loadTexture("../textures/emerald/diffuse.png");
+        emerald.emissiveMap = loadTexture("../textures/emerald/emissive.png");
+        ores.push_back(emerald);
+    } catch (const std::exception& e) {
+        std::cerr << "Failed to load emerald textures: " << e.what() << std::endl;
+    }
+    
+    // Redstone ore
+    OreProperties redstone;
+    redstone.name = "Redstone";
+    redstone.color = glm::vec3(0.9f, 0.1f, 0.1f); // Red
+    redstone.glowStrength = 2.5f;
+    
+    try {
+        redstone.diffuseMap = loadTexture("../textures/redstone/diffuse.png");
+        redstone.emissiveMap = loadTexture("../textures/redstone/emissive.png");
+        ores.push_back(redstone);
+    } catch (const std::exception& e) {
+        std::cerr << "Failed to load redstone textures: " << e.what() << std::endl;
+    }
+    
     // If no textures were loaded, at least add one default ore
     if (ores.empty()) {
         diamond.diffuseMap = 0; // We'll just use a solid color
         diamond.emissiveMap = 0;
         ores.push_back(diamond);
     }
-    
-    // More ore types can be added here as they become available
     
     // Camera position
     glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
@@ -199,7 +226,7 @@ int main() {
         glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
         glm::mat4 view = glm::lookAt(cameraPos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
         glm::mat4 model = glm::mat4(1.0f);
-        model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.5f, 1.0f, 0.0f));
+        model = glm::rotate(model, (float)glfwGetTime() * 0.5f, glm::vec3(0.5f, 1.0f, 0.0f));
         
         // First check if the shader has these uniforms (it might be the basic shader as fallback)
         GLint modelLoc = glGetUniformLocation(activeShader->ID, "model");
@@ -320,7 +347,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
 }
 
-// Utility function to load a texture from file
+// Utility function to load a texture from file with Minecraft-style pixel art settings
 unsigned int loadTexture(const char* path) {
     unsigned int textureID;
     glGenTextures(1, &textureID);
@@ -343,15 +370,25 @@ unsigned int loadTexture(const char* path) {
         
         glBindTexture(GL_TEXTURE_2D, textureID);
         glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
-        glGenerateMipmap(GL_TEXTURE_2D);
         
+        // Minecraft-style pixel art settings - use nearest-neighbor filtering
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);  // Changed from GL_LINEAR_MIPMAP_LINEAR
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);  // Changed from GL_LINEAR
+        
+        // We don't need mipmaps for pixel art
+        // glGenerateMipmap(GL_TEXTURE_2D);  // Commented out for pixel art
         
         stbi_image_free(data);
-        std::cout << "Loaded texture: " << path << " (" << width << "x" << height << ")" << std::endl;
+        
+        // Check if texture is 16x16 for Minecraft style
+        if (width == 16 && height == 16) {
+            std::cout << "Loaded 16x16 Minecraft-style texture: " << path << std::endl;
+        } else {
+            std::cout << "Warning: Texture is not 16x16 pixels: " << path << " (" << width << "x" << height << ")" << std::endl;
+            std::cout << "For authentic Minecraft look, textures should be exactly 16x16 pixels" << std::endl;
+        }
     } else {
         std::cerr << "Texture failed to load at path: " << path << std::endl;
         stbi_image_free(data);
