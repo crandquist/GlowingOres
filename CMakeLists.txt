@@ -31,10 +31,10 @@ set(SHADER_TEST_SOURCES
     src/test_shader.cpp
 )
 
-# Source files for glowing effect with bloom
+# Source files for glowing effect with simplified post-processing
 set(GLOWING_SOURCES
     src/shader.cpp
-    src/post_processor.cpp  # Added post_processor.cpp
+    src/simple_post.cpp  # Added simple_post.cpp here
     src/test_glowing.cpp
 )
 
