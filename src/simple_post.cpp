@@ -18,23 +18,6 @@ SimplePostProcessor::SimplePostProcessor(unsigned int width, unsigned int height
     initQuad();
 }
 
-// ... rest of the implementation as provided earlier ...
-
-SimplePostProcessor::SimplePostProcessor(unsigned int width, unsigned int height) 
-    : width(width), height(height), framebuffer(0), textureColorBuffer(0), quadVAO(0) {
-    
-    // Create a very simple shader for rendering to screen
-    try {
-        screenShader = new Shader("../shaders/quad.vert", "../shaders/simple_post.frag");
-    } catch (const std::exception& e) {
-        std::cerr << "Failed to load post-processing shaders: " << e.what() << std::endl;
-        throw;
-    }
-    
-    initFramebuffer();
-    initQuad();
-}
-
 SimplePostProcessor::~SimplePostProcessor() {
     delete screenShader;
     glDeleteFramebuffers(1, &framebuffer);
