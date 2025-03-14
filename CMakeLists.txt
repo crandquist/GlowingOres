@@ -34,7 +34,7 @@ set(SHADER_TEST_SOURCES
 # Source files for glowing effect with simplified post-processing
 set(GLOWING_SOURCES
     src/shader.cpp
-    src/simple_post.cpp  # Added simple_post.cpp here
+    src/post_processor.cpp
     src/test_glowing.cpp
 )
 
