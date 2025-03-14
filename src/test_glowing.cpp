@@ -1,3 +1,7 @@
+// Add this at the top to implement STB Image
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -6,7 +10,6 @@
 #include <iostream>
 #include <filesystem>
 #include "shader.h"
-#include "stb_image.h"
 
 // Settings
 const unsigned int SCR_WIDTH = 800;
@@ -18,7 +21,7 @@ void processInput(GLFWwindow* window, float &ambientLight);
 unsigned int loadTexture(const char* path);
 
 // Global variables
-float ambientLight = 0.5f; // Ambient light level
+float ambientLight = 0.5f; // Ambient light level (0.0 = dark, 1.0 = bright)
 
 int main() {
     // Initialize GLFW
@@ -57,8 +60,9 @@ int main() {
     // Print current directory to help with debugging file paths
     std::cout << "Current working directory: " << std::filesystem::current_path() << std::endl;
     
-    // Load and compile shaders
-    Shader glowingShader("../shaders/glowing.vert", "../shaders/glowing.frag");
+    // Use the basic shaders for now, just to get something working
+    // We'll use the glowing shaders once we've implemented them
+    Shader shader("../shaders/basic.vert", "../shaders/basic.frag");
     
     // Set up vertex data for a cube
     float vertices[] = {
@@ -127,19 +131,6 @@ int main() {
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
     glEnableVertexAttribArray(2);
     
-    // Load textures
-    unsigned int diffuseMap = loadTexture("../textures/diamond/diffuse.png");
-    unsigned int emissiveMap = loadTexture("../textures/diamond/emissive.png");
-    
-    // Set shader uniforms
-    glowingShader.use();
-    glowingShader.setInt("diffuseTexture", 0);
-    glowingShader.setInt("emissiveTexture", 1);
-    
-    // Set ore glow color (diamond blue)
-    glowingShader.setVec3("oreColor", glm::vec3(0.0f, 0.8f, 1.0f));
-    glowingShader.setFloat("glowStrength", 2.0f);
-    
     // Camera position
     glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
     
@@ -153,25 +144,13 @@ int main() {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         
         // Activate shader
-        glowingShader.use();
+        shader.use();
         
         // Set camera-related uniforms
         glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
         glm::mat4 view = glm::lookAt(cameraPos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.5f, 1.0f, 0.0f));
-        
-        glowingShader.setMat4("projection", projection);
-        glowingShader.setMat4("view", view);
-        glowingShader.setMat4("model", model);
-        glowingShader.setVec3("viewPos", cameraPos);
-        glowingShader.setFloat("ambientLight", ambientLight);
-        
-        // Bind textures
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, diffuseMap);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, emissiveMap);
         
         // Draw cube
         glBindVertexArray(VAO);
@@ -225,6 +204,10 @@ unsigned int loadTexture(const char* path) {
             format = GL_RGB;
         else if (nrComponents == 4)
             format = GL_RGBA;
+        else {
+            std::cout << "Texture format not supported: " << nrComponents << " components" << std::endl;
+            format = GL_RGB;
+        }
         
         glBindTexture(GL_TEXTURE_2D, textureID);
         glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
@@ -236,6 +219,7 @@ unsigned int loadTexture(const char* path) {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         
         stbi_image_free(data);
+        std::cout << "Loaded texture: " << path << " (" << width << "x" << height << ")" << std::endl;
     } else {
         std::cerr << "Texture failed to load at path: " << path << std::endl;
         stbi_image_free(data);
