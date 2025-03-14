@@ -43,6 +43,7 @@ Shader::Shader(const char* vertexPath, const char* fragmentPath) {
         std::cerr << "ERROR::SHADER::FILE_NOT_SUCCESSFULLY_READ: " << e.what() << std::endl;
         std::cerr << "Vertex path: " << vertexPath << std::endl;
         std::cerr << "Fragment path: " << fragmentPath << std::endl;
+        throw;
     }
     
     const char* vShaderCode = vertexCode.c_str();
@@ -86,27 +87,52 @@ void Shader::use() {
 }
 
 void Shader::setBool(const std::string &name, bool value) const {
-    glUniform1i(glGetUniformLocation(ID, name.c_str()), (int)value);
+    int location = glGetUniformLocation(ID, name.c_str());
+    if (location == -1) {
+        std::cerr << "Warning: Uniform '" << name << "' not found in shader" << std::endl;
+        return;  // Skip setting the uniform
+    }
+    glUniform1i(location, (int)value);
     checkGLError("setting bool uniform");
 }
 
 void Shader::setInt(const std::string &name, int value) const {
-    glUniform1i(glGetUniformLocation(ID, name.c_str()), value);
+    int location = glGetUniformLocation(ID, name.c_str());
+    if (location == -1) {
+        std::cerr << "Warning: Uniform '" << name << "' not found in shader" << std::endl;
+        return;  // Skip setting the uniform
+    }
+    glUniform1i(location, value);
     checkGLError("setting int uniform");
 }
 
 void Shader::setFloat(const std::string &name, float value) const {
-    glUniform1f(glGetUniformLocation(ID, name.c_str()), value);
+    int location = glGetUniformLocation(ID, name.c_str());
+    if (location == -1) {
+        std::cerr << "Warning: Uniform '" << name << "' not found in shader" << std::endl;
+        return;  // Skip setting the uniform
+    }
+    glUniform1f(location, value);
     checkGLError("setting float uniform");
 }
 
 void Shader::setVec3(const std::string &name, const glm::vec3 &value) const {
-    glUniform3fv(glGetUniformLocation(ID, name.c_str()), 1, glm::value_ptr(value));
+    int location = glGetUniformLocation(ID, name.c_str());
+    if (location == -1) {
+        std::cerr << "Warning: Uniform '" << name << "' not found in shader" << std::endl;
+        return;  // Skip setting the uniform
+    }
+    glUniform3fv(location, 1, glm::value_ptr(value));
     checkGLError("setting vec3 uniform");
 }
 
 void Shader::setMat4(const std::string &name, const glm::mat4 &value) const {
-    glUniformMatrix4fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE, glm::value_ptr(value));
+    int location = glGetUniformLocation(ID, name.c_str());
+    if (location == -1) {
+        std::cerr << "Warning: Uniform '" << name << "' not found in shader" << std::endl;
+        return;  // Skip setting the uniform
+    }
+    glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(value));
     checkGLError("setting mat4 uniform");
 }
 
@@ -118,7 +144,18 @@ void Shader::checkCompileErrors(unsigned int shader, std::string type) {
         glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
         if (!success) {
             glGetShaderInfoLog(shader, 1024, NULL, infoLog);
-            std::cout << "ERROR::SHADER_COMPILATION_ERROR of type: " << type << "\n" << infoLog << "\n -- --------------------------------------------------- -- " << std::endl;
+            std::cerr << "ERROR::SHADER_COMPILATION_ERROR of type: " << type << "\n" 
+                      << infoLog << "\n -- --------------------------------------------------- -- " << std::endl;
+            
+            // Added: Print the shader source for debugging
+            int shaderLen;
+            glGetShaderiv(shader, GL_SHADER_SOURCE_LENGTH, &shaderLen);
+            char* sourceStr = new char[shaderLen];
+            glGetShaderSource(shader, shaderLen, NULL, sourceStr);
+            std::cerr << "Shader source:\n" << sourceStr << std::endl;
+            delete[] sourceStr;
+            
+            throw std::runtime_error("Shader compilation failed");
         } else {
             std::cout << "Shader compilation successful: " << type << std::endl;
         }
@@ -126,14 +163,16 @@ void Shader::checkCompileErrors(unsigned int shader, std::string type) {
         glGetProgramiv(shader, GL_LINK_STATUS, &success);
         if (!success) {
             glGetProgramInfoLog(shader, 1024, NULL, infoLog);
-            std::cout << "ERROR::PROGRAM_LINKING_ERROR of type: " << type << "\n" << infoLog << "\n -- --------------------------------------------------- -- " << std::endl;
+            std::cerr << "ERROR::PROGRAM_LINKING_ERROR of type: " << type << "\n" 
+                      << infoLog << "\n -- --------------------------------------------------- -- " << std::endl;
+            throw std::runtime_error("Shader program linking failed");
         } else {
             std::cout << "Program linking successful" << std::endl;
         }
     }
 }
 
-void Shader::checkGLError(const char* operation) const { // Added 'const' here
+void Shader::checkGLError(const char* operation) const {
     GLenum error;
     while ((error = glGetError()) != GL_NO_ERROR) {
         std::cerr << "OpenGL error after " << operation << ": " 
