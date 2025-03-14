@@ -12,7 +12,7 @@
 #include <vector>
 #include <string>
 #include "shader.h"
-#include "simple_post.h"  // Use the simplified post-processor
+#include "post_processor.h"  // Using the full post-processor with bloom
 
 // Settings
 const unsigned int SCR_WIDTH = 800;
@@ -20,15 +20,17 @@ const unsigned int SCR_HEIGHT = 600;
 
 // Function prototypes
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-void processInput(GLFWwindow* window, float &ambientLight, int &currentOreIndex);
+void processInput(GLFWwindow* window, float &ambientLight, int &currentOreIndex, float &bloomIntensity, float &bloomThreshold);
 unsigned int loadTexture(const char* path);
 
 // Global variables
-float ambientLight = 0.5f; // Ambient light level (0.0 = dark, 1.0 = bright)
-int currentOreIndex = 0;   // Current ore being displayed
+float ambientLight = 0.5f;      // Ambient light level (0.0 = dark, 1.0 = bright)
+int currentOreIndex = 0;        // Current ore being displayed
+float bloomIntensity = 1.0f;    // Bloom effect intensity
+float bloomThreshold = 0.5f;    // Brightness threshold for bloom effect
 
-// Post-processor instance (simple version for now)
-SimplePostProcessor* postProcessor = nullptr;
+// Post-processor instance (now using the full PostProcessor class)
+PostProcessor* postProcessor = nullptr;
 
 // Struct to hold ore properties
 struct OreProperties {
@@ -76,10 +78,10 @@ int main() {
     // Print current directory to help with debugging file paths
     std::cout << "Current working directory: " << std::filesystem::current_path() << std::endl;
     
-    // Initialize simple post-processor
+    // Initialize post-processor
     try {
-        postProcessor = new SimplePostProcessor(SCR_WIDTH, SCR_HEIGHT);
-        std::cout << "Post-processor initialized successfully" << std::endl;
+        postProcessor = new PostProcessor(SCR_WIDTH, SCR_HEIGHT);
+        std::cout << "Post-processor initialized successfully with bloom effect" << std::endl;
     } catch (const std::exception& e) {
         std::cerr << "Failed to initialize post-processor: " << e.what() << std::endl;
         return -1;
@@ -88,12 +90,12 @@ int main() {
     // Load and compile shaders - first try the glowing shaders, fall back to basic if they don't exist
     Shader* activeShader = nullptr;
     try {
-        activeShader = new Shader("../shaders/glowing.vert", "../shaders/glowing.frag");
+        activeShader = new Shader("shaders/glowing.vert", "shaders/glowing.frag");
         std::cout << "Successfully loaded glowing shaders" << std::endl;
     } catch (const std::exception& e) {
         std::cerr << "Failed to load glowing shaders, falling back to basic: " << e.what() << std::endl;
         try {
-            activeShader = new Shader("../shaders/basic.vert", "../shaders/basic.frag");
+            activeShader = new Shader("shaders/basic.vert", "shaders/basic.frag");
             std::cout << "Successfully loaded basic shaders as fallback" << std::endl;
         } catch (const std::exception& e) {
             std::cerr << "Failed to load basic shaders too: " << e.what() << std::endl;
@@ -178,10 +180,40 @@ int main() {
     diamond.color = glm::vec3(0.0f, 0.8f, 1.0f); // Light blue
     diamond.glowStrength = 2.0f;
     
+    // Emerald ore
+    OreProperties emerald;
+    emerald.name = "Emerald";
+    emerald.color = glm::vec3(0.0f, 1.0f, 0.0f); // Green
+    emerald.glowStrength = 1.8f;
+    
+    // Redstone ore
+    OreProperties redstone;
+    redstone.name = "Redstone";
+    redstone.color = glm::vec3(1.0f, 0.0f, 0.0f); // Red
+    redstone.glowStrength = 2.2f;
+    
     try {
-        diamond.diffuseMap = loadTexture("../textures/diamond/diffuse.png");
-        diamond.emissiveMap = loadTexture("../textures/diamond/emissive.png");
+        // Load textures for each ore type
+        diamond.diffuseMap = loadTexture("textures/diamond/diffuse.png");
+        diamond.emissiveMap = loadTexture("textures/diamond/emissive.png");
         ores.push_back(diamond);
+        
+        // Try to load emerald and redstone textures too
+        try {
+            emerald.diffuseMap = loadTexture("textures/emerald/diffuse.png");
+            emerald.emissiveMap = loadTexture("textures/emerald/emissive.png");
+            ores.push_back(emerald);
+        } catch (const std::exception& e) {
+            std::cerr << "Failed to load emerald textures, skipping: " << e.what() << std::endl;
+        }
+        
+        try {
+            redstone.diffuseMap = loadTexture("textures/redstone/diffuse.png");
+            redstone.emissiveMap = loadTexture("textures/redstone/emissive.png");
+            ores.push_back(redstone);
+        } catch (const std::exception& e) {
+            std::cerr << "Failed to load redstone textures, skipping: " << e.what() << std::endl;
+        }
     } catch (const std::exception& e) {
         std::cerr << "Failed to load diamond textures, using fallback color: " << e.what() << std::endl;
     }
@@ -199,12 +231,14 @@ int main() {
     // Print instructions
     std::cout << "Controls:" << std::endl;
     std::cout << " - Up/Down arrows: Adjust ambient light level" << std::endl;
-    std::cout << " - Left/Right arrows: Switch between ore types (when more are available)" << std::endl;
+    std::cout << " - Left/Right arrows: Switch between ore types" << std::endl;
+    std::cout << " - W/S keys: Adjust bloom intensity" << std::endl;
+    std::cout << " - A/D keys: Adjust bloom threshold" << std::endl;
     
     // Render loop
     while (!glfwWindowShouldClose(window)) {
         // Process input
-        processInput(window, ambientLight, currentOreIndex);
+        processInput(window, ambientLight, currentOreIndex, bloomIntensity, bloomThreshold);
         
         // Begin rendering to post-processing framebuffer
         postProcessor->beginRender();
@@ -264,6 +298,12 @@ int main() {
             glUniform1f(glowStrengthLoc, currentOre.glowStrength);
         }
         
+        // Set bloom threshold for the shader (if it supports it)
+        GLint bloomThresholdLoc = glGetUniformLocation(activeShader->ID, "bloomThreshold");
+        if (bloomThresholdLoc != -1) {
+            glUniform1f(bloomThresholdLoc, bloomThreshold);
+        }
+        
         // Bind textures if the shader supports them and we have valid textures
         GLint diffuseTexLoc = glGetUniformLocation(activeShader->ID, "diffuseTexture");
         GLint emissiveTexLoc = glGetUniformLocation(activeShader->ID, "emissiveTexture");
@@ -284,16 +324,22 @@ int main() {
         glBindVertexArray(VAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
         
-        // End rendering to framebuffer and render to screen
+        // End rendering to framebuffer
         postProcessor->endRender();
-        postProcessor->renderToScreen();
+        
+        // Apply bloom effect and render to screen
+        postProcessor->applyBloom(bloomThreshold, bloomIntensity, 10); // 10 blur passes for smooth bloom
         
         // Swap buffers and poll events
         glfwSwapBuffers(window);
         glfwPollEvents();
         
         // Display current settings
-        std::cout << "\rOre: " << currentOre.name << " | Ambient Light: " << ambientLight << " (Use UP/DOWN arrows to adjust)" << std::flush;
+        std::cout << "\rOre: " << currentOre.name 
+                  << " | Ambient Light: " << ambientLight 
+                  << " | Bloom Intensity: " << bloomIntensity 
+                  << " | Bloom Threshold: " << bloomThreshold 
+                  << " (Use UP/DOWN, W/S, A/D to adjust)" << std::flush;
     }
     
     // Clean up
@@ -307,8 +353,8 @@ int main() {
     return 0;
 }
 
-// Process keyboard input
-void processInput(GLFWwindow* window, float &ambientLight, int &currentOreIndex) {
+// Process keyboard input with additional controls for bloom parameters
+void processInput(GLFWwindow* window, float &ambientLight, int &currentOreIndex, float &bloomIntensity, float &bloomThreshold) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
     
@@ -339,16 +385,27 @@ void processInput(GLFWwindow* window, float &ambientLight, int &currentOreIndex)
     } else {
         leftPressed = false;
     }
+    
+    // Adjust bloom intensity (W/S keys)
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+        bloomIntensity = std::min(bloomIntensity + 0.05f, 5.0f);
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+        bloomIntensity = std::max(bloomIntensity - 0.05f, 0.0f);
+        
+    // Adjust bloom threshold (A/D keys)
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+        bloomThreshold = std::min(bloomThreshold + 0.05f, 1.0f);
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+        bloomThreshold = std::max(bloomThreshold - 0.05f, 0.0f);
 }
 
-// Window resize callback
+// Window resize callback - update viewport and post-processor framebuffers
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
     
     // Resize post-processor framebuffers
     if (postProcessor) {
-        delete postProcessor;
-        postProcessor = new SimplePostProcessor(width, height);
+        postProcessor->resize(width, height);
     }
 }
 
