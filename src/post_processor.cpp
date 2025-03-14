@@ -5,9 +5,15 @@ PostProcessor::PostProcessor(unsigned int width, unsigned int height)
     : width(width), height(height) {
     
     // Load shaders
-    extractShader = new Shader("../shaders/quad.vert", "../shaders/bloom_extract.frag");
-    blurShader = new Shader("../shaders/quad.vert", "../shaders/blur.frag");
-    finalShader = new Shader("../shaders/quad.vert", "../shaders/bloom_final.frag");
+    try {
+        extractShader = new Shader("shaders/quad.vert", "shaders/bloom_extract.frag");
+        blurShader = new Shader("shaders/quad.vert", "shaders/blur.frag");
+        finalShader = new Shader("shaders/quad.vert", "shaders/bloom_final.frag");
+        std::cout << "Successfully loaded post-processing shaders for bloom effect" << std::endl;
+    } catch(const std::exception& e) {
+        std::cerr << "Failed to load post-processing shaders: " << e.what() << std::endl;
+        throw;
+    }
     
     // Initialize framebuffers and quad
     initFramebuffers();
