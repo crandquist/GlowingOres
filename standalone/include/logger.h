@@ -10,9 +10,10 @@
 class Logger {
 public:
     enum LogLevel {
-        ERROR,  // Only critical errors
-        INFO,   // Important function calls and state changes
-        DEBUG   // Detailed debugging information - disabled in production
+        ERROR,   // Only critical errors
+        WARNING, // Important warnings that don't stop execution
+        INFO,    // Important function calls and state changes
+        DEBUG    // Detailed debugging information - disabled in production
     };
 
     static LogLevel currentLevel;
@@ -30,6 +31,9 @@ public:
                 case ERROR:
                     prefix = "[ERROR]";
                     break;
+                case WARNING:
+                    prefix = "[WARN] ";
+                    break;
                 case INFO:
                     prefix = "[INFO] ";
                     break;
@@ -45,6 +49,10 @@ public:
     // Shorthand methods for different log levels
     static void error(const std::string& message) {
         log(ERROR, message);
+    }
+    
+    static void warning(const std::string& message) {
+        log(WARNING, message);
     }
     
     static void info(const std::string& message) {
