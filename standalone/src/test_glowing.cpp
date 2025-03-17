@@ -12,8 +12,12 @@
 #include <vector>
 #include <string>
 #include <iomanip>
+#include <sstream>
 #include "shader.h"
 #include "post_processor.h"  // Using the full post-processor with bloom
+
+// Include our text renderer
+#include "text_renderer.h" // Make sure to save the TextRenderer class in this file
 
 // Settings
 const unsigned int SCR_WIDTH = 800;
@@ -33,6 +37,19 @@ float bloomThreshold = 0.5f;    // Brightness threshold for bloom effect
 
 // Post-processor instance (now using the full PostProcessor class)
 PostProcessor* postProcessor = nullptr;
+TextRenderer* textRenderer = nullptr;
+
+// State for value change indicators
+struct ValueChangeIndicator {
+    float timeLeft = 0.0f;
+    bool increasing = false;
+    bool decreasing = false;
+};
+
+ValueChangeIndicator ambientLightIndicator;
+ValueChangeIndicator bloomIntensityIndicator;
+ValueChangeIndicator bloomThresholdIndicator;
+ValueChangeIndicator oreChangeIndicator;
 
 // Struct to hold ore properties
 struct OreProperties {
@@ -77,6 +94,10 @@ int main() {
     // Enable depth test
     glEnable(GL_DEPTH_TEST);
     
+    // Enable alpha blending for text rendering
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    
     // Print current directory to help with debugging file paths
     std::cout << "Current working directory: " << std::filesystem::current_path() << std::endl;
     
@@ -87,6 +108,15 @@ int main() {
     } catch (const std::exception& e) {
         std::cerr << "Failed to initialize post-processor: " << e.what() << std::endl;
         return -1;
+    }
+    
+    // Initialize text renderer
+    try {
+        textRenderer = new TextRenderer(SCR_WIDTH, SCR_HEIGHT);
+        std::cout << "Text renderer initialized successfully" << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "Failed to initialize text renderer: " << e.what() << std::endl;
+        // Continue without text rendering
     }
     
     // Load and compile shaders - first try the glowing shaders, fall back to basic if they don't exist
@@ -302,17 +332,37 @@ int main() {
     // Camera position
     glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
     
-    // Print instructions
+    // Print instructions in the console
     std::cout << "Controls:" << std::endl;
     std::cout << " - Up/Down arrows: Adjust ambient light level" << std::endl;
     std::cout << " - Left/Right arrows: Switch between ore types" << std::endl;
     std::cout << " - W/S keys: Adjust bloom intensity" << std::endl;
     std::cout << " - A/D keys: Adjust bloom threshold" << std::endl;
+    std::cout << " - ESC: Exit program" << std::endl;
+    
+    // Timing variables for animation
+    float lastFrame = 0.0f;
+    float deltaTime = 0.0f;
     
     // Render loop
     while (!glfwWindowShouldClose(window)) {
+        // Calculate delta time
+        float currentFrame = glfwGetTime();
+        deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
+        
         // Process input
         processInput(window, ambientLight, currentOreIndex, bloomIntensity, bloomThreshold);
+        
+        // Update value change indicators
+        if (ambientLightIndicator.timeLeft > 0.0f)
+            ambientLightIndicator.timeLeft -= deltaTime;
+        if (bloomIntensityIndicator.timeLeft > 0.0f)
+            bloomIntensityIndicator.timeLeft -= deltaTime;
+        if (bloomThresholdIndicator.timeLeft > 0.0f)
+            bloomThresholdIndicator.timeLeft -= deltaTime;
+        if (oreChangeIndicator.timeLeft > 0.0f)
+            oreChangeIndicator.timeLeft -= deltaTime;
         
         // Begin rendering to post-processing framebuffer
         postProcessor->beginRender();
@@ -404,11 +454,44 @@ int main() {
         // Apply bloom effect and render to screen
         postProcessor->applyBloom(bloomThreshold, bloomIntensity, 10); // 10 blur passes for smooth bloom
         
+        // Render text on screen if we have a text renderer
+        if (textRenderer) {
+            // Format value strings
+            std::stringstream oreText, ambientText, bloomIText, bloomTText;
+            oreText << "Ore Type: " << currentOre.name;
+            ambientText << "Ambient Light: " << std::fixed << std::setprecision(2) << ambientLight;
+            bloomIText << "Bloom Intensity: " << std::fixed << std::setprecision(2) << bloomIntensity;
+            bloomTText << "Bloom Threshold: " << std::fixed << std::setprecision(2) << bloomThreshold;
+            
+            // Indicator symbols
+            std::string oreIndicator = oreChangeIndicator.timeLeft > 0.0f ? " ◀ ▶" : "";
+            std::string ambientIndicator = ambientLightIndicator.timeLeft > 0.0f ? 
+                (ambientLightIndicator.increasing ? " ▲" : " ▼") : "";
+            std::string bloomIIndicator = bloomIntensityIndicator.timeLeft > 0.0f ? 
+                (bloomIntensityIndicator.increasing ? " ▲" : " ▼") : "";
+            std::string bloomTIndicator = bloomThresholdIndicator.timeLeft > 0.0f ? 
+                (bloomThresholdIndicator.increasing ? " ▲" : " ▼") : "";
+            
+            // Render current values with their indicators
+            textRenderer->renderText(oreText.str() + oreIndicator, 20.0f, SCR_HEIGHT - 40.0f, 0.5f, glm::vec3(1.0f, 1.0f, 0.0f));
+            textRenderer->renderText(ambientText.str() + ambientIndicator, 20.0f, SCR_HEIGHT - 70.0f, 0.5f, glm::vec3(0.8f, 0.8f, 0.8f));
+            textRenderer->renderText(bloomIText.str() + bloomIIndicator, 20.0f, SCR_HEIGHT - 100.0f, 0.5f, glm::vec3(0.8f, 0.8f, 0.8f));
+            textRenderer->renderText(bloomTText.str() + bloomTIndicator, 20.0f, SCR_HEIGHT - 130.0f, 0.5f, glm::vec3(0.8f, 0.8f, 0.8f));
+            
+            // Render controls at the bottom of the screen
+            textRenderer->renderText("CONTROLS:", 20.0f, 100.0f, 0.5f, glm::vec3(1.0f, 1.0f, 1.0f));
+            textRenderer->renderText("UP/DOWN: Adjust ambient light", 30.0f, 70.0f, 0.4f, glm::vec3(0.7f, 0.7f, 0.7f));
+            textRenderer->renderText("LEFT/RIGHT: Change ore type", 30.0f, 50.0f, 0.4f, glm::vec3(0.7f, 0.7f, 0.7f));
+            textRenderer->renderText("W/S: Adjust bloom intensity", 30.0f, 30.0f, 0.4f, glm::vec3(0.7f, 0.7f, 0.7f));
+            textRenderer->renderText("A/D: Adjust bloom threshold", 400.0f, 30.0f, 0.4f, glm::vec3(0.7f, 0.7f, 0.7f));
+            textRenderer->renderText("ESC: Exit", 400.0f, 50.0f, 0.4f, glm::vec3(0.7f, 0.7f, 0.7f));
+        }
+        
         // Swap buffers and poll events
         glfwSwapBuffers(window);
         glfwPollEvents();
         
-        // Display current settings
+        // Display current settings in the console
         std::cout << "\rOre: " << std::setw(12) << std::left << currentOre.name
                   << " | Ambient Light: " << std::fixed << std::setprecision(2) << ambientLight 
                   << " | Bloom Intensity: " << bloomIntensity 
@@ -422,6 +505,7 @@ int main() {
     
     delete activeShader;
     delete postProcessor;
+    if (textRenderer) delete textRenderer;
     
     glfwTerminate();
     return 0;
@@ -433,10 +517,18 @@ void processInput(GLFWwindow* window, float &ambientLight, int &currentOreIndex,
         glfwSetWindowShouldClose(window, true);
     
     // Adjust ambient light
-    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
         ambientLight = std::min(ambientLight + 0.01f, 1.0f);
-    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+        ambientLightIndicator.timeLeft = 1.0f;
+        ambientLightIndicator.increasing = true;
+        ambientLightIndicator.decreasing = false;
+    }
+    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
         ambientLight = std::max(ambientLight - 0.01f, 0.0f);
+        ambientLightIndicator.timeLeft = 1.0f;
+        ambientLightIndicator.increasing = false;
+        ambientLightIndicator.decreasing = true;
+    }
         
     // Change ore type
     static bool rightPressed = false;
@@ -444,6 +536,7 @@ void processInput(GLFWwindow* window, float &ambientLight, int &currentOreIndex,
         if (!rightPressed) {
             currentOreIndex++;
             rightPressed = true;
+            oreChangeIndicator.timeLeft = 1.0f;
         }
     } else {
         rightPressed = false;
@@ -455,22 +548,39 @@ void processInput(GLFWwindow* window, float &ambientLight, int &currentOreIndex,
             currentOreIndex--;
             if (currentOreIndex < 0) currentOreIndex = 0;
             leftPressed = true;
+            oreChangeIndicator.timeLeft = 1.0f;
         }
     } else {
         leftPressed = false;
     }
     
     // Adjust bloom intensity (W/S keys)
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
         bloomIntensity = std::min(bloomIntensity + 0.05f, 5.0f);
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+        bloomIntensityIndicator.timeLeft = 1.0f;
+        bloomIntensityIndicator.increasing = true;
+        bloomIntensityIndicator.decreasing = false;
+    }
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
         bloomIntensity = std::max(bloomIntensity - 0.05f, 0.0f);
+        bloomIntensityIndicator.timeLeft = 1.0f;
+        bloomIntensityIndicator.increasing = false;
+        bloomIntensityIndicator.decreasing = true;
+    }
         
     // Adjust bloom threshold (A/D keys)
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
         bloomThreshold = std::min(bloomThreshold + 0.05f, 1.0f);
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+        bloomThresholdIndicator.timeLeft = 1.0f;
+        bloomThresholdIndicator.increasing = true;
+        bloomThresholdIndicator.decreasing = false;
+    }
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
         bloomThreshold = std::max(bloomThreshold - 0.05f, 0.0f);
+        bloomThresholdIndicator.timeLeft = 1.0f;
+        bloomThresholdIndicator.increasing = false;
+        bloomThresholdIndicator.decreasing = true;
+    }
 }
 
 // Window resize callback - update viewport and post-processor framebuffers
@@ -480,6 +590,12 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     // Resize post-processor framebuffers
     if (postProcessor) {
         postProcessor->resize(width, height);
+    }
+    
+    // Update text renderer if it exists
+    if (textRenderer) {
+        delete textRenderer;
+        textRenderer = new TextRenderer(width, height);
     }
 }
 
@@ -577,3 +693,4 @@ unsigned int createColorTexture(glm::vec3 color, int size) {
     delete[] data;
     
     return textureID;
+}
