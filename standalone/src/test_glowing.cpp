@@ -14,7 +14,7 @@
 #include <sstream>
 #include "shader.h"
 #include "post_processor.h"  
-#include "text_renderer.h" 
+#include "simple_text_renderer.h" // We're using our new simplified renderer
 
 // Settings
 const unsigned int SCR_WIDTH = 800;
@@ -32,9 +32,9 @@ int currentOreIndex = 0;        // Current ore being displayed
 float bloomIntensity = 1.0f;    // Bloom effect intensity
 float bloomThreshold = 0.5f;    // Brightness threshold for bloom effect
 
-// Post-processor instance (now using the full PostProcessor class)
+// Post-processor instance
 PostProcessor* postProcessor = nullptr;
-TextRenderer* textRenderer = nullptr;
+SimpleTextRenderer* textRenderer = nullptr; // Using our simple renderer instead
 
 // State for value change indicators
 struct ValueChangeIndicator {
@@ -107,12 +107,12 @@ int main() {
         return -1;
     }
     
-    // Initialize text renderer
+    // Initialize simple text renderer
     try {
-        textRenderer = new TextRenderer(SCR_WIDTH, SCR_HEIGHT);
-        std::cout << "Text renderer initialized successfully" << std::endl;
+        textRenderer = new SimpleTextRenderer(SCR_WIDTH, SCR_HEIGHT);
+        std::cout << "Simple text renderer initialized successfully" << std::endl;
     } catch (const std::exception& e) {
-        std::cerr << "Failed to initialize text renderer: " << e.what() << std::endl;
+        std::cerr << "Failed to initialize simple text renderer: " << e.what() << std::endl;
         // Continue without text rendering
     }
     
@@ -451,37 +451,62 @@ int main() {
         // Apply bloom effect and render to screen
         postProcessor->applyBloom(bloomThreshold, bloomIntensity, 10); // 10 blur passes for smooth bloom
         
-        // Render text on screen if we have a text renderer
+        // Render text indicators on screen if we have a text renderer
         if (textRenderer) {
-            // Format value strings
-            std::stringstream oreText, ambientText, bloomIText, bloomTText;
-            oreText << "Ore Type: " << currentOre.name;
-            ambientText << "Ambient Light: " << std::fixed << std::setprecision(2) << ambientLight;
-            bloomIText << "Bloom Intensity: " << std::fixed << std::setprecision(2) << bloomIntensity;
-            bloomTText << "Bloom Threshold: " << std::fixed << std::setprecision(2) << bloomThreshold;
+            // Create a vector of name-value pairs for the controls
+            std::vector<std::pair<std::string, float>> values = {
+                {"Ore Type", static_cast<float>(oreIndex)},
+                {"Ambient Light", ambientLight},
+                {"Bloom Intensity", bloomIntensity},
+                {"Bloom Threshold", bloomThreshold}
+            };
             
-            // Indicator symbols
-            std::string oreIndicator = oreChangeIndicator.timeLeft > 0.0f ? " ◀ ▶" : "";
-            std::string ambientIndicator = ambientLightIndicator.timeLeft > 0.0f ? 
-                (ambientLightIndicator.increasing ? " ▲" : " ▼") : "";
-            std::string bloomIIndicator = bloomIntensityIndicator.timeLeft > 0.0f ? 
-                (bloomIntensityIndicator.increasing ? " ▲" : " ▼") : "";
-            std::string bloomTIndicator = bloomThresholdIndicator.timeLeft > 0.0f ? 
-                (bloomThresholdIndicator.increasing ? " ▲" : " ▼") : "";
+            // Render value bars
+            textRenderer->renderValueDisplays(values, 20.0f, SCR_HEIGHT - 100.0f, 30.0f);
             
-            // Render current values with their indicators
-            textRenderer->renderText(oreText.str() + oreIndicator, 20.0f, SCR_HEIGHT - 40.0f, 0.5f, glm::vec3(1.0f, 1.0f, 0.0f));
-            textRenderer->renderText(ambientText.str() + ambientIndicator, 20.0f, SCR_HEIGHT - 70.0f, 0.5f, glm::vec3(0.8f, 0.8f, 0.8f));
-            textRenderer->renderText(bloomIText.str() + bloomIIndicator, 20.0f, SCR_HEIGHT - 100.0f, 0.5f, glm::vec3(0.8f, 0.8f, 0.8f));
-            textRenderer->renderText(bloomTText.str() + bloomTIndicator, 20.0f, SCR_HEIGHT - 130.0f, 0.5f, glm::vec3(0.8f, 0.8f, 0.8f));
+            // Render direction indicators for changing values
+            float indicatorX = 230.0f;
             
-            // Render controls at the bottom of the screen
-            textRenderer->renderText("CONTROLS:", 20.0f, 100.0f, 0.5f, glm::vec3(1.0f, 1.0f, 1.0f));
-            textRenderer->renderText("UP/DOWN: Adjust ambient light", 30.0f, 70.0f, 0.4f, glm::vec3(0.7f, 0.7f, 0.7f));
-            textRenderer->renderText("LEFT/RIGHT: Change ore type", 30.0f, 50.0f, 0.4f, glm::vec3(0.7f, 0.7f, 0.7f));
-            textRenderer->renderText("W/S: Adjust bloom intensity", 30.0f, 30.0f, 0.4f, glm::vec3(0.7f, 0.7f, 0.7f));
-            textRenderer->renderText("A/D: Adjust bloom threshold", 400.0f, 30.0f, 0.4f, glm::vec3(0.7f, 0.7f, 0.7f));
-            textRenderer->renderText("ESC: Exit", 400.0f, 50.0f, 0.4f, glm::vec3(0.7f, 0.7f, 0.7f));
+            // Ambient light change indicator
+            if (ambientLightIndicator.timeLeft > 0.0f) {
+                textRenderer->renderDirectionIndicator(
+                    indicatorX, SCR_HEIGHT - 130.0f, 
+                    ambientLightIndicator.increasing, 
+                    true, 
+                    glm::vec4(0.2f, 0.6f, 1.0f, 1.0f)
+                );
+            }
+            
+            // Bloom intensity change indicator
+            if (bloomIntensityIndicator.timeLeft > 0.0f) {
+                textRenderer->renderDirectionIndicator(
+                    indicatorX, SCR_HEIGHT - 160.0f, 
+                    bloomIntensityIndicator.increasing, 
+                    true, 
+                    glm::vec4(1.0f, 0.6f, 0.2f, 1.0f)
+                );
+            }
+            
+            // Bloom threshold change indicator
+            if (bloomThresholdIndicator.timeLeft > 0.0f) {
+                textRenderer->renderDirectionIndicator(
+                    indicatorX, SCR_HEIGHT - 190.0f, 
+                    bloomThresholdIndicator.increasing, 
+                    true, 
+                    glm::vec4(0.2f, 1.0f, 0.6f, 1.0f)
+                );
+            }
+            
+            // Render control help indicators
+            textRenderer->renderQuad(20.0f, 50.0f, 200.0f, 120.0f, glm::vec4(0.1f, 0.1f, 0.1f, 0.7f));
+            
+            // Render labeled bars for controls
+            textRenderer->renderValueIndicator(30.0f, 140.0f, 180.0f, 20.0f, ambientLight, 0.0f, 1.0f, 
+                                              glm::vec4(0.2f, 0.6f, 1.0f, 1.0f));
+            textRenderer->renderValueIndicator(30.0f, 110.0f, 180.0f, 20.0f, bloomIntensity, 0.0f, 5.0f, 
+                                              glm::vec4(1.0f, 0.6f, 0.2f, 1.0f));
+            textRenderer->renderValueIndicator(30.0f, 80.0f, 180.0f, 20.0f, bloomThreshold, 0.0f, 1.0f, 
+                                              glm::vec4(0.2f, 1.0f, 0.6f, 1.0f));
         }
         
         // Swap buffers and poll events
@@ -506,188 +531,4 @@ int main() {
     
     glfwTerminate();
     return 0;
-}
-
-// Process keyboard input with additional controls for bloom parameters
-void processInput(GLFWwindow* window, float &ambientLight, int &currentOreIndex, float &bloomIntensity, float &bloomThreshold) {
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, true);
-    
-    // Adjust ambient light
-    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
-        ambientLight = std::min(ambientLight + 0.01f, 1.0f);
-        ambientLightIndicator.timeLeft = 1.0f;
-        ambientLightIndicator.increasing = true;
-        ambientLightIndicator.decreasing = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
-        ambientLight = std::max(ambientLight - 0.01f, 0.0f);
-        ambientLightIndicator.timeLeft = 1.0f;
-        ambientLightIndicator.increasing = false;
-        ambientLightIndicator.decreasing = true;
-    }
-        
-    // Change ore type
-    static bool rightPressed = false;
-    if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
-        if (!rightPressed) {
-            currentOreIndex++;
-            rightPressed = true;
-            oreChangeIndicator.timeLeft = 1.0f;
-        }
-    } else {
-        rightPressed = false;
-    }
-    
-    static bool leftPressed = false;
-    if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) {
-        if (!leftPressed) {
-            currentOreIndex--;
-            if (currentOreIndex < 0) currentOreIndex = 0;
-            leftPressed = true;
-            oreChangeIndicator.timeLeft = 1.0f;
-        }
-    } else {
-        leftPressed = false;
-    }
-    
-    // Adjust bloom intensity (W/S keys)
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-        bloomIntensity = std::min(bloomIntensity + 0.05f, 5.0f);
-        bloomIntensityIndicator.timeLeft = 1.0f;
-        bloomIntensityIndicator.increasing = true;
-        bloomIntensityIndicator.decreasing = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-        bloomIntensity = std::max(bloomIntensity - 0.05f, 0.0f);
-        bloomIntensityIndicator.timeLeft = 1.0f;
-        bloomIntensityIndicator.increasing = false;
-        bloomIntensityIndicator.decreasing = true;
-    }
-        
-    // Adjust bloom threshold (A/D keys)
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-        bloomThreshold = std::min(bloomThreshold + 0.05f, 1.0f);
-        bloomThresholdIndicator.timeLeft = 1.0f;
-        bloomThresholdIndicator.increasing = true;
-        bloomThresholdIndicator.decreasing = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-        bloomThreshold = std::max(bloomThreshold - 0.05f, 0.0f);
-        bloomThresholdIndicator.timeLeft = 1.0f;
-        bloomThresholdIndicator.increasing = false;
-        bloomThresholdIndicator.decreasing = true;
-    }
-}
-
-// Window resize callback - update viewport and post-processor framebuffers
-void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
-    glViewport(0, 0, width, height);
-    
-    // Resize post-processor framebuffers
-    if (postProcessor) {
-        postProcessor->resize(width, height);
-    }
-    
-    // Update text renderer if it exists
-    if (textRenderer) {
-        delete textRenderer;
-        textRenderer = new TextRenderer(width, height);
-    }
-}
-
-// Utility function to load a texture from file with Minecraft-style pixel art settings
-unsigned int loadTexture(const char* path) {
-    std::cout << "Attempting to load texture: " << path << std::endl;
-    
-    unsigned int textureID;
-    glGenTextures(1, &textureID);
-    
-    int width, height, nrComponents;
-    unsigned char *data = stbi_load(path, &width, &height, &nrComponents, 0);
-    if (data) {
-        GLenum format;
-        if (nrComponents == 1)
-            format = GL_RED;
-        else if (nrComponents == 3)
-            format = GL_RGB;
-        else if (nrComponents == 4)
-            format = GL_RGBA;
-        else {
-            std::cerr << "Texture format not supported: " << nrComponents << " components" << std::endl;
-            stbi_image_free(data);
-            throw std::runtime_error("Unsupported texture format");
-        }
-        
-        glBindTexture(GL_TEXTURE_2D, textureID);
-        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
-        
-        // Minecraft-style pixel art settings - use nearest-neighbor filtering
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        
-        stbi_image_free(data);
-        
-        std::cout << "Successfully loaded texture: " << path 
-                  << " (" << width << "x" << height 
-                  << " with " << nrComponents << " channels)" << std::endl;
-    } else {
-        std::cerr << "Texture failed to load at path: " << path << std::endl;
-        std::cerr << "STB Image error: " << stbi_failure_reason() << std::endl;
-        std::cerr << "Current working directory: " << std::filesystem::current_path() << std::endl;
-        
-        // List files in the textures directory to help debug
-        try {
-            std::string parent_path = std::filesystem::path(path).parent_path().string();
-            std::cout << "Checking contents of directory: " << parent_path << std::endl;
-            if (std::filesystem::exists(parent_path)) {
-                for (const auto& entry : std::filesystem::directory_iterator(parent_path)) {
-                    std::cout << " - " << entry.path().filename().string() << std::endl;
-                }
-            } else {
-                std::cout << "Directory does not exist!" << std::endl;
-            }
-        } catch (const std::exception& e) {
-            std::cerr << "Error checking directory: " << e.what() << std::endl;
-        }
-        
-        stbi_image_free(data); // Clean up even though it's likely NULL
-        throw std::runtime_error("Failed to load texture");
-    }
-    
-    return textureID;
-}
-
-// Utility function to create a solid color texture as a fallback
-unsigned int createColorTexture(glm::vec3 color, int size) {
-    unsigned int textureID;
-    glGenTextures(1, &textureID);
-    glBindTexture(GL_TEXTURE_2D, textureID);
-    
-    // Generate a solid color texture
-    unsigned char* data = new unsigned char[size * size * 3];
-    for (int y = 0; y < size; y++) {
-        for (int x = 0; x < size; x++) {
-            int index = (y * size + x) * 3;
-            data[index + 0] = static_cast<unsigned char>(color.r * 255.0f);
-            data[index + 1] = static_cast<unsigned char>(color.g * 255.0f);
-            data[index + 2] = static_cast<unsigned char>(color.b * 255.0f);
-        }
-    }
-    
-    // Set the texture data
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, size, size, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-    
-    // Set Minecraft-style nearest-neighbor filtering
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    
-    // Clean up
-    delete[] data;
-    
-    return textureID;
 }
