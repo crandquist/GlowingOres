@@ -14,8 +14,9 @@ varying vec3 normal;
 varying vec2 texCoords;
 varying vec4 lmcoord;
 varying float isOre;
+varying float blockId;      // Block ID from vertex shader
 
-// Define ore colors - you can add more or parameterize these
+// Define ore colors
 const vec3 diamondColor = vec3(0.0, 0.8, 1.0);          // Light blue
 const vec3 emeraldColor = vec3(0.0, 1.0, 0.0);          // Green
 const vec3 redstoneColor = vec3(1.0, 0.0, 0.0);         // Red
@@ -40,38 +41,45 @@ void main() {
     
     // Only apply glow effects to ore blocks
     if (isOre > 0.5) {
-        vec3 oreColor = diamondColor; // Default fallback color
+        // Default fallback color
+        vec3 oreColor = diamondColor;
         
-        // Method 1: If you have the block ID available through mc_Entity from the vertex shader
-        int blockId = int(mc_Entity.x);
+        // Determine ore color based on block ID
+        int blockIdInt = int(blockId);
         
-        // Determine which ore based on block ID
-        if (blockId == 16) oreColor = coalColor;           // Coal Ore
-        else if (blockId == 15) oreColor = ironColor;      // Iron Ore
-        else if (blockId == 14) oreColor = goldColor;      // Gold Ore
-        else if (blockId == 56) oreColor = diamondColor;   // Diamond Ore
-        else if (blockId == 21) oreColor = lapisColor;     // Lapis Ore
-        else if (blockId == 73) oreColor = redstoneColor;  // Redstone Ore
-        else if (blockId == 129) oreColor = emeraldColor;  // Emerald Ore
-        // Add more ore type checks as needed
+        if (blockIdInt == 16) {
+            oreColor = coalColor;           // Coal Ore
+        } 
+        else if (blockIdInt == 15) {
+            oreColor = ironColor;           // Iron Ore
+        }
+        else if (blockIdInt == 14) {
+            oreColor = goldColor;           // Gold Ore
+        }
+        else if (blockIdInt == 56) {
+            oreColor = diamondColor;        // Diamond Ore
+        }
+        else if (blockIdInt == 21) {
+            oreColor = lapisColor;          // Lapis Ore
+        }
+        else if (blockIdInt == 73 || blockIdInt == 74) {
+            oreColor = redstoneColor;       // Redstone Ore (lit and unlit)
+        }
+        else if (blockIdInt == 129) {
+            oreColor = emeraldColor;        // Emerald Ore
+        }
+        else if (blockIdInt == 153) {
+            oreColor = quartzColor;         // Nether Quartz Ore
+        }
         
-        // Method 2 (Alternative): If block ID isn't available, you can try analyzing the texture
-        // This is less reliable but can work in some cases
-        /*
-        vec3 avgColor = baseColor.rgb;
-        float r = avgColor.r;
-        float g = avgColor.g;
-        float b = avgColor.b;
-        
-        // Very approximate texture detection based on color
-        if (b > r && b > g) oreColor = diamondColor;       // Diamond or Lapis, blue-dominant
-        else if (g > r && g > b) oreColor = emeraldColor;  // Emerald, green-dominant
-        else if (r > g && r > b) oreColor = redstoneColor; // Redstone, red-dominant
-        // And so on - this method is much less reliable
-        */
+        // For modern blocks (10000+ IDs), we would handle them here
+        // This depends on your OptiFine configuration
         
         // Calculate dynamic glow based on light level
+        // Convert lightmap to brightness value (weighted for human perception)
         float brightness = dot(lightLevel, vec3(0.2126, 0.7152, 0.0722));
+        
+        // Ores glow more in darkness (caves) and less in bright areas
         float dynamicGlow = glowStrength * (1.0 - brightness);
         
         // Add the glow to the base color
