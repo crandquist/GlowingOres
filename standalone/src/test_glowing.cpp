@@ -520,6 +520,35 @@ int main() {
                   << " | Bloom Threshold: " << bloomThreshold 
                   << " (Use UP/DOWN, W/S, A/D to adjust)" << std::flush;
     }
+
+    void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
+        // Update OpenGL viewport to match new window dimensions
+        glViewport(0, 0, width, height);
+        
+        // Resize post-processor framebuffers if available
+        if (postProcessor) {
+            try {
+                postProcessor->resize(width, height);
+                std::cout << "Resized post-processor to " << width << "x" << height << std::endl;
+            } catch (const std::exception& e) {
+                std::cerr << "Error resizing post-processor: " << e.what() << std::endl;
+            }
+        }
+        
+        // Update text renderer if it exists to match new window dimensions
+        if (textRenderer) {
+            try {
+                // Delete old renderer and create a new one with updated dimensions
+                delete textRenderer;
+                textRenderer = new SimpleTextRenderer(width, height);
+                std::cout << "Recreated text renderer for dimensions " << width << "x" << height << std::endl;
+            } catch (const std::exception& e) {
+                std::cerr << "Error recreating text renderer: " << e.what() << std::endl;
+                textRenderer = nullptr; // Set to null if recreation fails
+            }
+        }
+    }
+    
     
     // Clean up
     glDeleteVertexArrays(1, &VAO);
