@@ -1,4 +1,3 @@
-// Define STB Image implementation before including the header
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -14,10 +13,8 @@
 #include <iomanip>
 #include <sstream>
 #include "shader.h"
-#include "post_processor.h"  // Using the full post-processor with bloom
-
-// Include our text renderer
-#include "text_renderer.h" // Make sure to save the TextRenderer class in this file
+#include "post_processor.h"  
+#include "text_renderer.h" 
 
 // Settings
 const unsigned int SCR_WIDTH = 800;
