@@ -34,7 +34,7 @@ set(SHADER_TEST_SOURCES
 # Source files for glowing effect with simplified post-processing
 set(GLOWING_SOURCES
     src/shader.cpp
-    src/post_processor.cpp
+    src/post_processor.cpp  # Changed from simple_post.cpp to post_processor.cpp
     src/test_glowing.cpp
 )
 
@@ -89,4 +89,20 @@ file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/textures/redstone)
 file(GLOB SHADER_FILES ${CMAKE_SOURCE_DIR}/shaders/*.vert ${CMAKE_SOURCE_DIR}/shaders/*.frag)
 foreach(SHADER_FILE ${SHADER_FILES})
     file(COPY ${SHADER_FILE} DESTINATION ${CMAKE_BINARY_DIR}/shaders/)
+endforeach()
+
+# Copy texture files to build directory
+file(GLOB_RECURSE TEXTURE_FILES 
+    ${CMAKE_SOURCE_DIR}/textures/*.png 
+    ${CMAKE_SOURCE_DIR}/textures/*.jpg
+)
+foreach(TEXTURE_FILE ${TEXTURE_FILES})
+    # Get the relative path to maintain directory structure
+    file(RELATIVE_PATH REL_PATH ${CMAKE_SOURCE_DIR} ${TEXTURE_FILE})
+    # Create the destination path
+    get_filename_component(DEST_PATH ${CMAKE_BINARY_DIR}/${REL_PATH} DIRECTORY)
+    # Create directory if it doesn't exist
+    file(MAKE_DIRECTORY ${DEST_PATH})
+    # Copy the file
+    file(COPY ${TEXTURE_FILE} DESTINATION ${DEST_PATH})
 endforeach()

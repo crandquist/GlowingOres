@@ -193,7 +193,8 @@ int main() {
     redstone.glowStrength = 2.2f;
     
     try {
-        // Load textures for each ore type
+        // Load textures for each ore type - paths are now relative to the build directory
+        // Since we're copying the textures in CMakeLists.txt, we can use the original paths
         diamond.diffuseMap = loadTexture("textures/diamond/diffuse.png");
         diamond.emissiveMap = loadTexture("textures/diamond/emissive.png");
         ores.push_back(diamond);
@@ -216,7 +217,7 @@ int main() {
         }
     } catch (const std::exception& e) {
         std::cerr << "Failed to load diamond textures, using fallback color: " << e.what() << std::endl;
-    }
+    }    
     
     // If no textures were loaded, at least add one default ore
     if (ores.empty()) {
@@ -411,6 +412,8 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 
 // Utility function to load a texture from file with Minecraft-style pixel art settings
 unsigned int loadTexture(const char* path) {
+    std::cout << "Attempting to load texture: " << path << std::endl;
+    
     unsigned int textureID;
     glGenTextures(1, &textureID);
     
@@ -436,24 +439,35 @@ unsigned int loadTexture(const char* path) {
         // Minecraft-style pixel art settings - use nearest-neighbor filtering
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);  // Changed from GL_LINEAR_MIPMAP_LINEAR
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);  // Changed from GL_LINEAR
-        
-        // We don't need mipmaps for pixel art
-        // glGenerateMipmap(GL_TEXTURE_2D);  // Commented out for pixel art
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         
         stbi_image_free(data);
         
-        // Check if texture is 16x16 for Minecraft style
-        if (width == 16 && height == 16) {
-            std::cout << "Loaded 16x16 Minecraft-style texture: " << path << std::endl;
-        } else {
-            std::cout << "Warning: Texture is not 16x16 pixels: " << path << " (" << width << "x" << height << ")" << std::endl;
-            std::cout << "For authentic Minecraft look, textures should be exactly 16x16 pixels" << std::endl;
-        }
+        std::cout << "Successfully loaded texture: " << path 
+                  << " (" << width << "x" << height 
+                  << " with " << nrComponents << " channels)" << std::endl;
     } else {
         std::cerr << "Texture failed to load at path: " << path << std::endl;
-        stbi_image_free(data);
+        std::cerr << "STB Image error: " << stbi_failure_reason() << std::endl;
+        std::cerr << "Current working directory: " << std::filesystem::current_path() << std::endl;
+        
+        // List files in the textures directory to help debug
+        try {
+            std::string parent_path = std::filesystem::path(path).parent_path().string();
+            std::cout << "Checking contents of directory: " << parent_path << std::endl;
+            if (std::filesystem::exists(parent_path)) {
+                for (const auto& entry : std::filesystem::directory_iterator(parent_path)) {
+                    std::cout << " - " << entry.path().filename().string() << std::endl;
+                }
+            } else {
+                std::cout << "Directory does not exist!" << std::endl;
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "Error checking directory: " << e.what() << std::endl;
+        }
+        
+        stbi_image_free(data); // Clean up even though it's likely NULL
         throw std::runtime_error("Failed to load texture");
     }
     
