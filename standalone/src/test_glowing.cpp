@@ -14,7 +14,7 @@
 #include <sstream>
 #include "shader.h"
 #include "post_processor.h"  
-#include "simple_text_renderer.h" // We're using our new simplified renderer
+#include "simple_text_renderer.h" // Using the simplified renderer
 
 // Settings
 const unsigned int SCR_WIDTH = 800;
@@ -56,6 +56,197 @@ struct OreProperties {
     unsigned int diffuseMap;
     unsigned int emissiveMap;
 };
+
+// Implementation of framebuffer_size_callback - moved outside of main
+void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
+    // Update OpenGL viewport to match new window dimensions
+    glViewport(0, 0, width, height);
+    
+    // Resize post-processor framebuffers if available
+    if (postProcessor) {
+        try {
+            postProcessor->resize(width, height);
+            std::cout << "Resized post-processor to " << width << "x" << height << std::endl;
+        } catch (const std::exception& e) {
+            std::cerr << "Error resizing post-processor: " << e.what() << std::endl;
+        }
+    }
+    
+    // Update text renderer if it exists to match new window dimensions
+    if (textRenderer) {
+        try {
+            // Delete old renderer and create a new one with updated dimensions
+            delete textRenderer;
+            textRenderer = new SimpleTextRenderer(width, height);
+            std::cout << "Recreated text renderer for dimensions " << width << "x" << height << std::endl;
+        } catch (const std::exception& e) {
+            std::cerr << "Error recreating text renderer: " << e.what() << std::endl;
+            textRenderer = nullptr; // Set to null if recreation fails
+        }
+    }
+}
+
+// Implementation for processInput function
+void processInput(GLFWwindow* window, float &ambientLight, int &currentOreIndex, float &bloomIntensity, float &bloomThreshold) {
+    // Check for escape key to close the window
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, true);
+
+    // Adjust ambient light with up/down arrows
+    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
+        ambientLight += 0.01f;
+        if (ambientLight > 1.0f) ambientLight = 1.0f;
+        ambientLightIndicator.timeLeft = 1.0f;
+        ambientLightIndicator.increasing = true;
+        ambientLightIndicator.decreasing = false;
+    }
+    else if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
+        ambientLight -= 0.01f;
+        if (ambientLight < 0.0f) ambientLight = 0.0f;
+        ambientLightIndicator.timeLeft = 1.0f;
+        ambientLightIndicator.increasing = false;
+        ambientLightIndicator.decreasing = true;
+    }
+    
+    // Switch ore types with left/right arrows
+    static bool rightKeyPressed = false;
+    static bool leftKeyPressed = false;
+    
+    if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
+        if (!rightKeyPressed) {
+            currentOreIndex++;
+            oreChangeIndicator.timeLeft = 1.0f;
+            oreChangeIndicator.increasing = true;
+            oreChangeIndicator.decreasing = false;
+            rightKeyPressed = true;
+        }
+    } else {
+        rightKeyPressed = false;
+    }
+    
+    if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) {
+        if (!leftKeyPressed) {
+            currentOreIndex--;
+            if (currentOreIndex < 0) currentOreIndex = 0;
+            oreChangeIndicator.timeLeft = 1.0f;
+            oreChangeIndicator.increasing = false;
+            oreChangeIndicator.decreasing = true;
+            leftKeyPressed = true;
+        }
+    } else {
+        leftKeyPressed = false;
+    }
+    
+    // Adjust bloom intensity with W/S keys
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+        bloomIntensity += 0.05f;
+        if (bloomIntensity > 5.0f) bloomIntensity = 5.0f;
+        bloomIntensityIndicator.timeLeft = 1.0f;
+        bloomIntensityIndicator.increasing = true;
+        bloomIntensityIndicator.decreasing = false;
+    }
+    else if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+        bloomIntensity -= 0.05f;
+        if (bloomIntensity < 0.0f) bloomIntensity = 0.0f;
+        bloomIntensityIndicator.timeLeft = 1.0f;
+        bloomIntensityIndicator.increasing = false;
+        bloomIntensityIndicator.decreasing = true;
+    }
+    
+    // Adjust bloom threshold with A/D keys
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+        bloomThreshold += 0.01f;
+        if (bloomThreshold > 1.0f) bloomThreshold = 1.0f;
+        bloomThresholdIndicator.timeLeft = 1.0f;
+        bloomThresholdIndicator.increasing = true;
+        bloomThresholdIndicator.decreasing = false;
+    }
+    else if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+        bloomThreshold -= 0.01f;
+        if (bloomThreshold < 0.0f) bloomThreshold = 0.0f;
+        bloomThresholdIndicator.timeLeft = 1.0f;
+        bloomThresholdIndicator.increasing = false;
+        bloomThresholdIndicator.decreasing = true;
+    }
+}
+
+// Implementation for loadTexture function
+unsigned int loadTexture(const char* path) {
+    unsigned int textureID;
+    glGenTextures(1, &textureID);
+    
+    int width, height, nrComponents;
+    unsigned char *data = stbi_load(path, &width, &height, &nrComponents, 0);
+    if (data) {
+        GLenum format;
+        if (nrComponents == 1)
+            format = GL_RED;
+        else if (nrComponents == 3)
+            format = GL_RGB;
+        else if (nrComponents == 4)
+            format = GL_RGBA;
+        else {
+            std::cerr << "Texture has unknown format: " << path << std::endl;
+            format = GL_RGB; // Default fallback
+        }
+        
+        glBindTexture(GL_TEXTURE_2D, textureID);
+        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+        
+        // Set texture parameters
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        
+        stbi_image_free(data);
+        
+        std::cout << "Texture loaded successfully: " << path << ", dimensions: " << width << "x" << height << std::endl;
+    } else {
+        std::cerr << "Texture failed to load at path: " << path << std::endl;
+        std::cerr << "STB error: " << stbi_failure_reason() << std::endl;
+        stbi_image_free(data);
+        throw std::runtime_error("Failed to load texture");
+    }
+    
+    return textureID;
+}
+
+// Implementation for createColorTexture function
+unsigned int createColorTexture(glm::vec3 color, int size) {
+    // Generate a simple colored texture for fallback when image textures are not available
+    unsigned int textureID;
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+    
+    // Generate a solid color texture
+    unsigned char* data = new unsigned char[size * size * 3];
+    for (int i = 0; i < size * size * 3; i += 3) {
+        // Convert color from 0-1 range to 0-255
+        data[i] = static_cast<unsigned char>(color.r * 255.0f);
+        data[i + 1] = static_cast<unsigned char>(color.g * 255.0f);
+        data[i + 2] = static_cast<unsigned char>(color.b * 255.0f);
+    }
+    
+    // Upload the texture data
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, size, size, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    
+    // Set texture parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    
+    // Clean up
+    delete[] data;
+    
+    std::cout << "Created color texture with RGB: (" 
+              << color.r << ", " << color.g << ", " << color.b << ")" << std::endl;
+    
+    return textureID;
+}
 
 int main() {
     // Initialize GLFW
@@ -520,35 +711,6 @@ int main() {
                   << " | Bloom Threshold: " << bloomThreshold 
                   << " (Use UP/DOWN, W/S, A/D to adjust)" << std::flush;
     }
-
-    void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
-        // Update OpenGL viewport to match new window dimensions
-        glViewport(0, 0, width, height);
-        
-        // Resize post-processor framebuffers if available
-        if (postProcessor) {
-            try {
-                postProcessor->resize(width, height);
-                std::cout << "Resized post-processor to " << width << "x" << height << std::endl;
-            } catch (const std::exception& e) {
-                std::cerr << "Error resizing post-processor: " << e.what() << std::endl;
-            }
-        }
-        
-        // Update text renderer if it exists to match new window dimensions
-        if (textRenderer) {
-            try {
-                // Delete old renderer and create a new one with updated dimensions
-                delete textRenderer;
-                textRenderer = new SimpleTextRenderer(width, height);
-                std::cout << "Recreated text renderer for dimensions " << width << "x" << height << std::endl;
-            } catch (const std::exception& e) {
-                std::cerr << "Error recreating text renderer: " << e.what() << std::endl;
-                textRenderer = nullptr; // Set to null if recreation fails
-            }
-        }
-    }
-    
     
     // Clean up
     glDeleteVertexArrays(1, &VAO);
@@ -560,4 +722,3 @@ int main() {
     
     glfwTerminate();
     return 0;
-}
