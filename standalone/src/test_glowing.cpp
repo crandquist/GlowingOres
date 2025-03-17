@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <vector>
 #include <string>
+#include <iomanip>
 #include "shader.h"
 #include "post_processor.h"  // Using the full post-processor with bloom
 
@@ -22,6 +23,7 @@ const unsigned int SCR_HEIGHT = 600;
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window, float &ambientLight, int &currentOreIndex, float &bloomIntensity, float &bloomThreshold);
 unsigned int loadTexture(const char* path);
+unsigned int createColorTexture(glm::vec3 color, int size = 16);
 
 // Global variables
 float ambientLight = 0.5f;      // Ambient light level (0.0 = dark, 1.0 = bright)
@@ -171,59 +173,130 @@ int main() {
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
     glEnableVertexAttribArray(2);
     
-    // Define ore types
+    // Define all overworld ore types
     std::vector<OreProperties> ores;
     
     // Diamond ore
     OreProperties diamond;
-    diamond.name = "Diamond";
+    diamond.name = "Diamond Ore";
     diamond.color = glm::vec3(0.0f, 0.8f, 1.0f); // Light blue
     diamond.glowStrength = 2.0f;
     
     // Emerald ore
     OreProperties emerald;
-    emerald.name = "Emerald";
+    emerald.name = "Emerald Ore";
     emerald.color = glm::vec3(0.0f, 1.0f, 0.0f); // Green
     emerald.glowStrength = 1.8f;
     
     // Redstone ore
     OreProperties redstone;
-    redstone.name = "Redstone";
+    redstone.name = "Redstone Ore";
     redstone.color = glm::vec3(1.0f, 0.0f, 0.0f); // Red
     redstone.glowStrength = 2.2f;
     
+    // Gold ore
+    OreProperties gold;
+    gold.name = "Gold Ore";
+    gold.color = glm::vec3(1.0f, 0.8f, 0.0f); // Golden yellow
+    gold.glowStrength = 1.6f;
+    
+    // Coal ore
+    OreProperties coal;
+    coal.name = "Coal Ore";
+    coal.color = glm::vec3(0.2f, 0.2f, 0.3f); // Dark gray with slight blue
+    coal.glowStrength = 1.2f;
+    
+    // Iron ore
+    OreProperties iron;
+    iron.name = "Iron Ore";
+    iron.color = glm::vec3(0.8f, 0.8f, 0.8f); // Silvery
+    iron.glowStrength = 1.4f;
+    
+    // Lapis ore
+    OreProperties lapis;
+    lapis.name = "Lapis Ore";
+    lapis.color = glm::vec3(0.0f, 0.0f, 0.8f); // Deep blue
+    lapis.glowStrength = 1.7f;
+    
+    // Copper ore
+    OreProperties copper;
+    copper.name = "Copper Ore";
+    copper.color = glm::vec3(0.8f, 0.4f, 0.1f); // Copper orange
+    copper.glowStrength = 1.5f;
+    
+    // Try to load textures for each ore type
     try {
-        // Load textures for each ore type - paths are now relative to the build directory
-        // Since we're copying the textures in CMakeLists.txt, we can use the original paths
-        diamond.diffuseMap = loadTexture("textures/diamond/diffuse.png");
-        diamond.emissiveMap = loadTexture("textures/diamond/emissive.png");
+        // Diamond textures
+        try {
+            diamond.diffuseMap = loadTexture("textures/diamond/diffuse.png");
+            diamond.emissiveMap = loadTexture("textures/diamond/emissive.png");
+            std::cout << "Diamond textures loaded successfully" << std::endl;
+        } catch (const std::exception& e) {
+            std::cerr << "Failed to load diamond textures, using fallback colors: " << e.what() << std::endl;
+            diamond.diffuseMap = createColorTexture(glm::vec3(0.2f, 0.4f, 0.8f));
+            diamond.emissiveMap = createColorTexture(diamond.color);
+        }
         ores.push_back(diamond);
         
-        // Try to load emerald and redstone textures too
+        // Emerald textures
         try {
             emerald.diffuseMap = loadTexture("textures/emerald/diffuse.png");
             emerald.emissiveMap = loadTexture("textures/emerald/emissive.png");
-            ores.push_back(emerald);
+            std::cout << "Emerald textures loaded successfully" << std::endl;
         } catch (const std::exception& e) {
-            std::cerr << "Failed to load emerald textures, skipping: " << e.what() << std::endl;
+            std::cerr << "Failed to load emerald textures, using fallback colors: " << e.what() << std::endl;
+            emerald.diffuseMap = createColorTexture(glm::vec3(0.1f, 0.6f, 0.3f));
+            emerald.emissiveMap = createColorTexture(emerald.color);
         }
+        ores.push_back(emerald);
         
+        // Redstone textures
         try {
             redstone.diffuseMap = loadTexture("textures/redstone/diffuse.png");
             redstone.emissiveMap = loadTexture("textures/redstone/emissive.png");
-            ores.push_back(redstone);
+            std::cout << "Redstone textures loaded successfully" << std::endl;
         } catch (const std::exception& e) {
-            std::cerr << "Failed to load redstone textures, skipping: " << e.what() << std::endl;
+            std::cerr << "Failed to load redstone textures, using fallback colors: " << e.what() << std::endl;
+            redstone.diffuseMap = createColorTexture(glm::vec3(0.6f, 0.1f, 0.1f));
+            redstone.emissiveMap = createColorTexture(redstone.color);
         }
+        ores.push_back(redstone);
+        
+        // For the remaining ores, use color fallbacks without trying to load textures
+        // Gold ore
+        gold.diffuseMap = createColorTexture(glm::vec3(0.5f, 0.4f, 0.1f));
+        gold.emissiveMap = createColorTexture(gold.color);
+        ores.push_back(gold);
+        
+        // Coal ore
+        coal.diffuseMap = createColorTexture(glm::vec3(0.1f, 0.1f, 0.1f));
+        coal.emissiveMap = createColorTexture(coal.color);
+        ores.push_back(coal);
+        
+        // Iron ore
+        iron.diffuseMap = createColorTexture(glm::vec3(0.5f, 0.5f, 0.5f));
+        iron.emissiveMap = createColorTexture(iron.color);
+        ores.push_back(iron);
+        
+        // Lapis ore
+        lapis.diffuseMap = createColorTexture(glm::vec3(0.1f, 0.1f, 0.5f));
+        lapis.emissiveMap = createColorTexture(lapis.color);
+        ores.push_back(lapis);
+        
+        // Copper ore
+        copper.diffuseMap = createColorTexture(glm::vec3(0.6f, 0.3f, 0.1f));
+        copper.emissiveMap = createColorTexture(copper.color);
+        ores.push_back(copper);
+        
     } catch (const std::exception& e) {
-        std::cerr << "Failed to load diamond textures, using fallback color: " << e.what() << std::endl;
-    }    
-    
-    // If no textures were loaded, at least add one default ore
-    if (ores.empty()) {
-        diamond.diffuseMap = 0; // We'll just use a solid color
-        diamond.emissiveMap = 0;
-        ores.push_back(diamond);
+        std::cerr << "Unexpected error setting up ore textures: " << e.what() << std::endl;
+        
+        // If we have a catastrophic failure, at least add one default ore
+        if (ores.empty()) {
+            diamond.diffuseMap = createColorTexture(glm::vec3(0.2f, 0.4f, 0.8f));
+            diamond.emissiveMap = createColorTexture(diamond.color);
+            ores.push_back(diamond);
+        }
     }
     
     // Camera position
@@ -336,8 +409,8 @@ int main() {
         glfwPollEvents();
         
         // Display current settings
-        std::cout << "\rOre: " << currentOre.name 
-                  << " | Ambient Light: " << ambientLight 
+        std::cout << "\rOre: " << std::setw(12) << std::left << currentOre.name
+                  << " | Ambient Light: " << std::fixed << std::setprecision(2) << ambientLight 
                   << " | Bloom Intensity: " << bloomIntensity 
                   << " | Bloom Threshold: " << bloomThreshold 
                   << " (Use UP/DOWN, W/S, A/D to adjust)" << std::flush;
@@ -473,3 +546,34 @@ unsigned int loadTexture(const char* path) {
     
     return textureID;
 }
+
+// Utility function to create a solid color texture as a fallback
+unsigned int createColorTexture(glm::vec3 color, int size) {
+    unsigned int textureID;
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+    
+    // Generate a solid color texture
+    unsigned char* data = new unsigned char[size * size * 3];
+    for (int y = 0; y < size; y++) {
+        for (int x = 0; x < size; x++) {
+            int index = (y * size + x) * 3;
+            data[index + 0] = static_cast<unsigned char>(color.r * 255.0f);
+            data[index + 1] = static_cast<unsigned char>(color.g * 255.0f);
+            data[index + 2] = static_cast<unsigned char>(color.b * 255.0f);
+        }
+    }
+    
+    // Set the texture data
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, size, size, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+    
+    // Set Minecraft-style nearest-neighbor filtering
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    
+    // Clean up
+    delete[] data;
+    
+    return textureID;
