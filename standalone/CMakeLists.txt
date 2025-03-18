@@ -84,6 +84,10 @@ file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/textures)
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/textures/diamond)
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/textures/emerald)
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/textures/redstone)
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/textures/gold)
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/textures/iron)
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/textures/lapis)
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/textures/copper)
 
 # Copy shader files to build directory
 file(GLOB SHADER_FILES ${CMAKE_SOURCE_DIR}/shaders/*.vert ${CMAKE_SOURCE_DIR}/shaders/*.frag)

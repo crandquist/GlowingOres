@@ -519,7 +519,7 @@ int main() {
         // Copper ore
         try {
             copper.diffuseMap = loadTexture("textures/copper/diffuse.png");
-            lapis.emissiveMap = loadTexture("textures/copper/emissive.png");
+            copper.emissiveMap = loadTexture("textures/copper/emissive.png");
             std::cout << "Copper textures loaded successfully" << std::endl;
         } catch (const std::exception& e) {
             std::cerr << "Failed to load copper textures, using fallback colors: " << e.what() << std::endl;
