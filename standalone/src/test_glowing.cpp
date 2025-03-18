@@ -36,7 +36,7 @@ float bloomThreshold = 0.5f;    // Brightness threshold for bloom effect
 static float prev_ambientLight = ambientLight;
 static float prev_bloomIntensity = bloomIntensity;
 static float prev_bloomThreshold = bloomThreshold;
-static int prev_oreIndex = oreIndex;
+static int prev_oreIndex = 0;
 
 // Post-processor instance
 PostProcessor* postProcessor = nullptr;
@@ -645,7 +645,7 @@ int main() {
         postProcessor->endRender();
         
         // Apply bloom effect and render to screen
-        postProcessor->applyBloom(bloomThreshold, bloomIntensity, 1);
+        postProcessor->applyBloom(bloomThreshold, bloomIntensity, 5);
         
         // Render text indicators on screen if we have a text renderer
         if (textRenderer) {
@@ -727,7 +727,8 @@ int main() {
             prev_bloomThreshold = bloomThreshold;
             prev_oreIndex = oreIndex;
         }
-    
+    }
+
     // Clean up
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
