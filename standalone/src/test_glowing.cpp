@@ -32,6 +32,12 @@ int currentOreIndex = 0;        // Current ore being displayed
 float bloomIntensity = 1.0f;    // Bloom effect intensity
 float bloomThreshold = 0.5f;    // Brightness threshold for bloom effect
 
+// Track previous values to detect changes
+static float prev_ambientLight = ambientLight;
+static float prev_bloomIntensity = bloomIntensity;
+static float prev_bloomThreshold = bloomThreshold;
+static int prev_oreIndex = oreIndex;
+
 // Post-processor instance
 PostProcessor* postProcessor = nullptr;
 SimpleTextRenderer* textRenderer = nullptr; // Using our simple renderer instead
@@ -703,13 +709,24 @@ int main() {
         glfwSwapBuffers(window);
         glfwPollEvents();
         
-        // Display current settings in the console
-        std::cout << "\rOre: " << std::setw(12) << std::left << currentOre.name
-                  << " | Ambient Light: " << std::fixed << std::setprecision(2) << ambientLight 
-                  << " | Bloom Intensity: " << bloomIntensity 
-                  << " | Bloom Threshold: " << bloomThreshold 
-                  << " (Use UP/DOWN, W/S, A/D to adjust)" << std::flush;
-    }
+        // Only print when values change
+        if (prev_ambientLight != ambientLight || prev_bloomIntensity != bloomIntensity || 
+            prev_bloomThreshold != bloomThreshold || prev_oreIndex != oreIndex) {
+            
+            // Clear the entire line before printing new content
+            std::cout << "\r\033[K";  // \r returns to start, \033[K clears to end of line
+            std::cout << "Ore: " << std::setw(12) << std::left << currentOre.name
+                    << " | Ambient Light: " << std::fixed << std::setprecision(2) << ambientLight 
+                    << " | Bloom Intensity: " << bloomIntensity 
+                    << " | Bloom Threshold: " << bloomThreshold 
+                    << std::endl;  // Use endl instead of flush
+            
+            // Update previous values
+            prev_ambientLight = ambientLight;
+            prev_bloomIntensity = bloomIntensity;
+            prev_bloomThreshold = bloomThreshold;
+            prev_oreIndex = oreIndex;
+        }
     
     // Clean up
     glDeleteVertexArrays(1, &VAO);
