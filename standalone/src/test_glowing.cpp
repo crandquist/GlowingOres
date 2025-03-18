@@ -423,12 +423,6 @@ int main() {
     gold.color = glm::vec3(1.0f, 0.8f, 0.0f); // Golden yellow
     gold.glowStrength = 1.6f;
     
-    // Coal ore
-    OreProperties coal;
-    coal.name = "Coal Ore";
-    coal.color = glm::vec3(0.2f, 0.2f, 0.3f); // Dark gray with slight blue
-    coal.glowStrength = 1.2f;
-    
     // Iron ore
     OreProperties iron;
     iron.name = "Iron Ore";
@@ -485,30 +479,53 @@ int main() {
         }
         ores.push_back(redstone);
         
-        // For the remaining ores, use color fallbacks without trying to load textures
         // Gold ore
-        gold.diffuseMap = createColorTexture(glm::vec3(0.5f, 0.4f, 0.1f));
-        gold.emissiveMap = createColorTexture(gold.color);
+        try {
+            gold.diffuseMap = loadTexture("textures/gold/diffuse.png");
+            gold.emissiveMap = loadTexture("textures/gold/emissive.png");
+            std::cout << "Gold textures loaded successfully" << std::endl;
+        } catch (const std::exception& e) {
+            std::cerr << "Failed to load gold textures, using fallback colors: " << e.what() << std::endl;
+            gold.diffuseMap = createColorTexture(glm::vec3(0.5f, 0.4f, 0.1f));
+            gold.emissiveMap = createColorTexture(gold.color);
+        }
         ores.push_back(gold);
         
-        // Coal ore
-        coal.diffuseMap = createColorTexture(glm::vec3(0.1f, 0.1f, 0.1f));
-        coal.emissiveMap = createColorTexture(coal.color);
-        ores.push_back(coal);
-        
         // Iron ore
-        iron.diffuseMap = createColorTexture(glm::vec3(0.5f, 0.5f, 0.5f));
-        iron.emissiveMap = createColorTexture(iron.color);
+        try {
+            iron.diffuseMap = loadTexture("textures/iron/diffuse.png");
+            diamond.emissiveMap = loadTexture("textures/iron/emissive.png");
+            std::cout << "Iron textures loaded successfully" << std::endl;
+        } catch (const std::exception& e) {
+            std::cerr << "Failed to load iron textures, using fallback colors: " << e.what() << std::endl;
+            iron.diffuseMap = createColorTexture(glm::vec3(0.5f, 0.5f, 0.5f));
+            iron.emissiveMap = createColorTexture(iron.color);
+        }
         ores.push_back(iron);
         
+        
         // Lapis ore
-        lapis.diffuseMap = createColorTexture(glm::vec3(0.1f, 0.1f, 0.5f));
-        lapis.emissiveMap = createColorTexture(lapis.color);
+        try {
+            lapis.diffuseMap = loadTexture("textures/lapis/diffuse.png");
+            lapis.emissiveMap = loadTexture("textures/lapis/emissive.png");
+            std::cout << "Lapis textures loaded successfully" << std::endl;
+        } catch (const std::exception& e) {
+            std::cerr << "Failed to load lapis textures, using fallback colors: " << e.what() << std::endl;
+            lapis.diffuseMap = createColorTexture(glm::vec3(0.1f, 0.1f, 0.5f));
+            lapis.emissiveMap = createColorTexture(lapis.color);
+        }
         ores.push_back(lapis);
         
         // Copper ore
-        copper.diffuseMap = createColorTexture(glm::vec3(0.6f, 0.3f, 0.1f));
-        copper.emissiveMap = createColorTexture(copper.color);
+        try {
+            copper.diffuseMap = loadTexture("textures/copper/diffuse.png");
+            lapis.emissiveMap = loadTexture("textures/copper/emissive.png");
+            std::cout << "Copper textures loaded successfully" << std::endl;
+        } catch (const std::exception& e) {
+            std::cerr << "Failed to load copper textures, using fallback colors: " << e.what() << std::endl;
+            copper.diffuseMap = createColorTexture(glm::vec3(0.6f, 0.3f, 0.1f));
+            copper.emissiveMap = createColorTexture(copper.color);
+        }
         ores.push_back(copper);
         
     } catch (const std::exception& e) {
@@ -645,7 +662,7 @@ int main() {
         postProcessor->endRender();
         
         // Apply bloom effect and render to screen
-        postProcessor->applyBloom(bloomThreshold, bloomIntensity, 5);
+        postProcessor->applyBloom(bloomThreshold, bloomIntensity, 10);
         
         // Render text indicators on screen if we have a text renderer
         if (textRenderer) {
