@@ -197,9 +197,8 @@ unsigned int loadTexture(const char* path) {
         // Set texture parameters
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);        
         stbi_image_free(data);
         
         std::cout << "Texture loaded successfully: " << path << ", dimensions: " << width << "x" << height << std::endl;
@@ -640,7 +639,7 @@ int main() {
         postProcessor->endRender();
         
         // Apply bloom effect and render to screen
-        postProcessor->applyBloom(bloomThreshold, bloomIntensity, 10); // 10 blur passes for smooth bloom
+        postProcessor->applyBloom(bloomThreshold, bloomIntensity, 1);
         
         // Render text indicators on screen if we have a text renderer
         if (textRenderer) {
